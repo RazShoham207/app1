@@ -49,7 +49,7 @@ jobs:
           curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x ./kubectl
           mv ./kubectl /usr/local/bin/kubectl
-          kubectl apply -f k8s/deployment.yml
+          # kubectl apply -f k8s/deployment.yml
           CONTEXT_NAME=$(kubectl config get-contexts -o name | grep cluster-intimate-coyote)
           kubectl config use-context $CONTEXT_NAME
 
