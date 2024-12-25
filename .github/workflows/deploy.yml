@@ -53,7 +53,7 @@ jobs:
 
     - name: Get and use Kubernetes context
       run: |
-        $contextName = kubectl config get-contexts -o name | Select-String -Pattern cluster-intimate-coyote | ForEach-Object { $_.Line })
+        $contextName = kubectl config get-contexts -o name | Select-String -Pattern cluster-intimate-coyote | ForEach-Object { $_.Line }
         kubectl config use-context $contextName
 
     - name: Annotate and label existing Deployment
