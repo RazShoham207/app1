@@ -50,13 +50,3 @@ jobs:
           chmod +x ./kubectl
           mv ./kubectl /usr/local/bin/kubectl
           kubectl apply -f k8s/deployment.yml
-
-    # - name: Azure Login
-    #   uses: azure/login@v1
-    #   with:
-    #     creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    # - name: Deploy to AKS
-    #   run: |
-    #     az aks get-credentials --resource-group rg-steady-swift --name cluster-intimate-coyote
-    #     kubectl apply -f k8s/deployment.yaml
