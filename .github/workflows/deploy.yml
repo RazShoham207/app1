@@ -52,7 +52,9 @@ jobs:
           kubectl apply -f k8s/deployment.yml
 
     - name: Login to Azure
-      run: az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      # run: az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
 
     - name: Get AKS credentials
       run: az aks get-credentials --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_AKS_CLUSTER }}
