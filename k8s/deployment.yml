@@ -17,6 +17,8 @@ spec:
         image: tendermulletacr.azurecr.io/restaurants-app:latest
         ports:
         - containerPort: 80
+      imagePullSecrets:
+      - name: acr-secret
 
 ---
 apiVersion: v1
