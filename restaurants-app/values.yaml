@@ -1,0 +1,19 @@
+replicaCount: 1
+
+image:
+  repository: tendermulletacr.azurecr.io/restaurants-app
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: acr-secret
+
+service:
+  type: LoadBalancer
+  port: 80
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
