@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restaurants-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: restaurants-app
+  template:
+    metadata:
+      labels:
+        app: restaurants-app
+    spec:
+      containers:
+      - name: restaurants-app
+        image: <your_acr_name>.azurecr.io/<your_app_name>:latest
+        ports:
+        - containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: restaurants-app-service
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: restaurants-app
