@@ -51,6 +51,13 @@ jobs:
           mv ./kubectl /usr/local/bin/kubectl
           kubectl apply -f k8s/deployment.yml
 
+    - name: Annotate and label existing Deployment
+      run: |
+        kubectl annotate deployment restaurants-app meta.helm.sh/release-name=restaurants-app --overwrite
+        kubectl annotate deployment restaurants-app meta.helm.sh/release-namespace=default --overwrite
+        kubectl label deployment restaurants-app app.kubernetes.io/managed-by=Helm --overwrite
+
+
     - name: Login to Azure
       uses: azure/login@v1
       with:
