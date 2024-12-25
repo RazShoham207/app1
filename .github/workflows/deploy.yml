@@ -19,13 +19,13 @@ jobs:
     - name: Login to Azure Container Registry
       uses: azure/docker-login@v1
       with:
-        login-server: <your_acr_name>.azurecr.io
+        login-server: tendermulletacr.azurecr.io
         username: ${{ secrets.AZURE_ACR_USERNAME }}
         password: ${{ secrets.AZURE_ACR_PASSWORD }}
 
     - name: Build and push Docker image
       run: |
-        docker buildx build --push --tag <your_acr_name>.azurecr.io/<your_app_name>:latest .
+        docker buildx build --push --tag tendermulletacr.azurecr.io/restaurants-app:latest .
 
   deploy:
     runs-on: ubuntu-latest

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: restaurants-app
-        image: <your_acr_name>.azurecr.io/<your_app_name>:latest
+        image: tendermulletacr.azurecr.io/restaurants-app:latest
         ports:
         - containerPort: 80
 
