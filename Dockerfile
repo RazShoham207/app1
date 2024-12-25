@@ -10,6 +10,9 @@ ADD . /app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Update Flask and Werkzeug
+RUN pip install --upgrade Flask Werkzeug
+
 # Verify installed versions
 RUN pip show Flask Werkzeug
 
