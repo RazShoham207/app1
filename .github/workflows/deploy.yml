@@ -1,30 +1,4 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "restaurants-app.fullname" . }}
-  labels:
-    app: {{ include "restaurants-app.name" . }}
-    app.kubernetes.io/managed-by: Helm
-  annotations:
-    meta.helm.sh/release-name: {{ .Release.Name }}
-    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
-spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: {{ include "restaurants-app.name" . }}
-  template:
-    metadata:
-      labels:
-        app: {{ include "restaurants-app.name" . }}
-    spec:
-      containers:
-      - name: {{ .Chart.Name }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        ports:
-        - containerPort: 80
-      imagePullSecrets:
-      {{- toYaml .Values.imagePullSecrets | nindent 8 }}name: Deploy to AKS
+name: Deploy to AKS
 
 on:
   push:
