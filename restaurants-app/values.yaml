@@ -23,7 +23,7 @@ serviceAccount:
   name: ""
 
 ingress:
-  enabled: false
+  enabled: true
   annotations: {}
   hosts:
     - host: chart-example.local
