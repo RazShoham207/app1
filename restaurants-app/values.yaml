@@ -26,7 +26,7 @@ ingress:
   enabled: true
   annotations: {}
   hosts:
-    - host: chart-example.local
+    - host: http://135.237.104.138/recommend?style=American&vegetarian=false
       paths:
         - path: /
           pathType: ImplementationSpecific
