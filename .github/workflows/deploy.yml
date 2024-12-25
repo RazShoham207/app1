@@ -35,6 +35,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
     - name: Set up Azure CLI
       uses: azure/CLI@v1
       with:
@@ -43,10 +48,10 @@ jobs:
           az aks get-credentials --resource-group rg-steady-swift --name cluster-intimate-coyote
           kubectl apply -f k8s/deployment.yml
 
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    # - name: Azure Login
+    #   uses: azure/login@v1
+    #   with:
+    #     creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     # - name: Deploy to AKS
     #   run: |
