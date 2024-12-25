@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Verify installed versions
 RUN pip show Flask Werkzeug
 
-# Print installed versions
-RUN python -c "import flask; import werkzeug; print('Flask version:', flask.__version__); print('Werkzeug version:', werkzeug.__version__)"
+# # Print installed versions
+# RUN python -c "import flask; import werkzeug; print('Flask version:', flask.__version__); print('Werkzeug version:', werkzeug.__version__)"
 
 # Make port 80 available to the world outside this container
 EXPOSE 80
