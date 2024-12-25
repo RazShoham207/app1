@@ -51,6 +51,11 @@ jobs:
           mv ./kubectl /usr/local/bin/kubectl
           kubectl apply -f k8s/deployment.yml
 
+    - name: Get and use Kubernetes context
+      run: |
+        CONTEXT_NAME=$(kubectl config get-contexts -o name | grep cluster-intimate-coyote)
+        kubectl config use-context $CONTEXT_NAME
+
     - name: Annotate and label existing Deployment
       run: |
         kubectl annotate deployment restaurants-app meta.helm.sh/release-name=restaurants-app --overwrite
