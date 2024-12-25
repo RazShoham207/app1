@@ -24,7 +24,7 @@ class Restaurant:
             # Opening and closing times are on the same day
             return open_time <= current_time <= close_time
         else:
-            # Closing time is after midnight
+            # Opening and closing times are on different days
             return current_time >= open_time or current_time <= close_time
 
 restaurants = [
@@ -75,4 +75,4 @@ def favicon():
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=80)
