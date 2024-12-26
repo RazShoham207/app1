@@ -15,11 +15,7 @@ To create a Kubernetes secret of type `docker-registry` that contains the `.dock
 Here is an example command:
 
 ```sh
-kubectl create secret docker-registry acr-secret \
-  --docker-server=tendermulletacr.azurecr.io \
-  --docker-username=tendermulletacr \
-  --docker-password=<password> \
-  --docker-email=raz.shoham207@gmail.com
+kubectl create secret docker-registry acr-secret --docker-server=restaurantsacr.azurecr.io --docker-username=restaurantsacr --docker-password=<acr access keys password> --docker-email=raz.shoham207@gmail.com
 ```
 
 This command will create a Kubernetes secret named `acr-secret` with the necessary credentials to authenticate with your ACR.
