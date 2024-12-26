@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: tendermulletacr.azurecr.io/restaurants-app
+  repository: restaurantsacr.azurecr.io/restaurants-app
   tag: latest
   pullPolicy: IfNotPresent
 
