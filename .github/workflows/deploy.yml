@@ -63,4 +63,4 @@ jobs:
       run: az aks get-credentials --resource-group rg-steady-swift --name cluster-intimate-coyote
 
     - name: Deploy Helm chart
-      run: helm upgrade --install restaurants-app ./restaurants-app --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --set imagePullSecrets[0].name=acr-secret
+      run: helm upgrade --install restaurants-app ./restaurants-charts --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --set imagePullSecrets[0].name=acr-secret
