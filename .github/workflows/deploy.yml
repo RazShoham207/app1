@@ -45,7 +45,7 @@ jobs:
       with:
         azcliversion: latest
         inlineScript: |
-          az aks get-credentials --resource-group rg-steady-swift --name cluster-intimate-coyote
+          az aks get-credentials --resource-group restaurants-rg --name cluster-intimate-coyote
           curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x ./kubectl
           mv ./kubectl /usr/local/bin/kubectl
