@@ -4,12 +4,6 @@ variable "resource_group_location" {
   description = "Location of the resource group."
 }
 
-variable "resource_group_name_prefix" {
-  type        = string
-  default     = "rg"
-  description = "Prefix of the resource group name that's combined with a random ID so name is unique in your Azure subscription."
-}
-
 variable "node_count" {
   type        = number
   description = "The initial quantity of nodes for the node pool."
@@ -36,4 +30,16 @@ variable "acr_sku" {
 variable "acr_name" {
   type    = string
   default = "restaurantsacr"
+}
+
+variable "restaurants_rg_name" {
+  type        = string
+  description = "The name of the resource group for the AKS cluster."
+  default     = "restaurants-rg"
+}
+
+variable "devops_rg_name" {
+  type        = string
+  description = "The name of the resource group for DevOps resources."
+  default     = "DevOps-rg"
 }
