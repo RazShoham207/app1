@@ -2,8 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: restaurants-app-ingress
+  namespace: default
+  labels:
+    app.kubernetes.io/managed-by: Helm
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    meta.helm.sh/release-name: restaurants-app
+    meta.helm.sh/release-namespace: default
 spec:
   ingressClassName: nginx
   tls:

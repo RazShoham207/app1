@@ -112,6 +112,7 @@ sed -i '/EOT/d' ./azurek8s
 # Set an environment variable so kubectl can pick up the correct config
 echo "### Setting an environment variable so kubectl can pick up the correct config"
 export KUBECONFIG=./azurek8s
+chmod 600 ./azurek8s
 
 # Verify the health of the cluster using the kubectl get nodes command
 echo "### Verifying the health of the cluster using the kubectl get nodes command"
@@ -176,8 +177,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: restaurants-app-ingress
+  namespace: default
+  labels:
+    app.kubernetes.io/managed-by: Helm
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    meta.helm.sh/release-name: restaurants-app
+    meta.helm.sh/release-namespace: default
 spec:
   ingressClassName: nginx
   tls:
@@ -244,19 +250,19 @@ EOT
 )
 
 # Check if ClusterIssuer exists
-if ! kubectl get clusterissuer restaurants-app-ci > /dev/null 2>&1; then
+if ! kubectl get clusterissuer letsencrypt-prod > /dev/null 2>&1; then
   echo "### Creating ClusterIssuer - $(date +"%A, %B %d, %Y - %H:%M:%S")"
   cat <<EOF > restaurants-app-clusterissuer.yaml
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: restaurants-app-ci
+  name: letsencrypt-prod
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
     email: raz.shoham@gmail.com
     privateKeySecretRef:
-      name: restaurants-app-ci
+      name: letsencrypt-prod
     solvers:
     - http01:
         ingress:
@@ -266,7 +272,7 @@ EOF
   # Apply the YAML file
   kubectl apply -f restaurants-app-clusterissuer.yaml
 else
-  echo "### ClusterIssuer 'restaurants-app-ci' already exists - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+  echo "### ClusterIssuer 'letsencrypt-prod' already exists - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 fi
 
 # Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME
@@ -291,6 +297,18 @@ fi
 echo "### Applying the updated INGRESS_CONFIG and CERTIFICATE_CONFIG into the AKS"
 echo "$UPDATED_INGRESS_CONFIG" | kubectl apply -f -
 echo "$UPDATED_CERTIFICATE_CONFIG" | kubectl apply -f -
+
+# Authenticate with the AKS cluster
+echo "### Authenticating with the AKS cluster"
+az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
+
+# Verify authentication
+echo "### Verifying authentication"
+kubectl get nodes
+
+# Patch the Ingress resource
+echo "### Patching the Ingress resource"
+kubectl patch ingress restaurants-app-ingress -n default --type='json' -p='[ {"op": "add", "path": "/metadata/labels/app.kubernetes.io~1managed-by", "value": "Helm"}, {"op": "add", "path": "/metadata/annotations/meta.helm.sh~1release-name", "value": "restaurants-app"}, {"op": "add", "path": "/metadata/annotations/meta.helm.sh~1release-namespace", "value": "default"} ]'
 
 echo "#####################################################################################################"
 echo "## The URL for the application is: https://$EXTERNAL_IP/recommend?style=American&vegetarian=false ##"
