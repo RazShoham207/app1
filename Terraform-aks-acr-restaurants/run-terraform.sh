@@ -207,27 +207,32 @@ EOT
 # Check if ClusterIssuer exists
 if ! kubectl get clusterissuer restaurants-app-tls > /dev/null 2>&1; then
   echo "### Creating ClusterIssuer - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-  cat <<EOF > restaurants-app-tls-clusterissuer.yaml
+  cat <<EOF > restaurants-app-clusterissuer.yaml
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: restaurants-app-tls
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: restaurants-app
+    meta.helm.sh/release-namespace: default
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: your-email@example.com
+    email: raz.shoham207@gmail.com
     privateKeySecretRef:
-      name: restaurants-app-tls
+      name: letsencrypt-prod
     solvers:
     - http01:
         ingress:
           class: nginx
 EOF
 
-  # Apply the YAML file
-  kubectl apply -f restaurants-app-tls-clusterissuer.yaml
+# Apply the YAML file
+  kubectl apply -f restaurants-app-clusterissuer.yaml
 else
-  echo "### ClusterIssuer 'restaurants-app-tls' already exists - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+  echo "### ClusterIssuer 'letsencrypt-prod' already exists - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 fi
 
 # Create the Certificate Configuration
@@ -249,31 +254,7 @@ spec:
 EOT
 )
 
-# Check if ClusterIssuer exists
-if ! kubectl get clusterissuer letsencrypt-prod > /dev/null 2>&1; then
-  echo "### Creating ClusterIssuer - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-  cat <<EOF > restaurants-app-clusterissuer.yaml
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: raz.shoham@gmail.com
-    privateKeySecretRef:
-      name: letsencrypt-prod
-    solvers:
-    - http01:
-        ingress:
-          class: nginx
-EOF
 
-  # Apply the YAML file
-  kubectl apply -f restaurants-app-clusterissuer.yaml
-else
-  echo "### ClusterIssuer 'letsencrypt-prod' already exists - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-fi
 
 # Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME
 echo "### Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME"

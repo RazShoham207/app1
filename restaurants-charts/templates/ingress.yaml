@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: Helm
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     meta.helm.sh/release-name: restaurants-app
     meta.helm.sh/release-namespace: default
 spec:

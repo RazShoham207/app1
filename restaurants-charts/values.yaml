@@ -31,3 +31,13 @@ ingress:
         - path: /
           pathType: ImplementationSpecific
   tls: []
+
+clusterIssuer:
+name: letsencrypt-prod
+email: raz.shoham@gmail.com
+
+certificate:
+name: restaurants-app-tls
+commonName: your-ip-address.nip.io
+dnsNames:
+  - your-ip-address.nip.io
