@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: restaurants-app-tls
+  namespace: default
+spec:
+  secretName: restaurants-app-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: your-ip-address.nip.io
+  dnsNames:
+    - your-ip-address.nip.io
