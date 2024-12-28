@@ -158,21 +158,65 @@ else
   echo "### NGINX Ingress Controller is already installed - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 fi
 
-# Install Cert-Manager
+# Setup the Certificates for the Ingress Controller
+# Do not use the ClusterIssuer, Certificate and Ingress in Helm Chart
+# 1. Install Cert-Manager
+# Cert-Manager is a Kubernetes add-on that automates the management and issuance of TLS certificates
 echo "### Installing Cert-Manager"
 kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
 
-# Get the External IP from a LoadBalancer service
-echo "### Getting the External IP from a LoadBalancer service"
-EXTERNAL_IP=$(kubectl get svc nginx-ingress-ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+# 2. Create the ClusterIssuer for Let's Encrypt Production Certificate Authority (CA) - letsencrypt-prod
+# The ClusterIssuer resource represents a certificate authority (CA) that should be used to sign certificates
+echo "### Creating the ClusterIssuer for Let's Encrypt Production Certificate Authority (CA) - letsencrypt-prod"
+cat <<EOF > restaurants-app-clusterissuer.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: restaurants-app
+    meta.helm.sh/release-namespace: default
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: raz.shoham207@gmail.com
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+EOF
 
-# Get the restaurants-app-tls full name
-echo "### Getting the restaurants-app-tls full name"
-TLS_SECRET_NAME=$(kubectl get secrets | grep "restaurants-app-tls" | awk '{print $1}')
+CLUSTERISSUER_CONFIG=$(cat restaurants-app-clusterissuer.yaml)
 
-# Create the Ingress Configuration
-echo "### Creating the Ingress Configuration"
-INGRESS_CONFIG=$(cat << EOT
+# 3. Create the Certificate resource
+# Define a Certificate resource to request a TLS certificate for your application from Let's Encrypt using the ClusterIssuer
+echo "### Creating the Certificate resource"
+cat <<EOF > restaurants-app-certificate.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: restaurants-app-tls
+  namespace: default
+spec:
+  secretName: restaurants-app-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: your-ip-address.nip.io
+  dnsNames:
+    - your-ip-address.nip.io
+EOF
+
+CERTIFICATE_CONFIG=$(cat restaurants-app-certificate.yaml)
+
+# 4. Update the Ingress resource
+# Update the Ingress resource to use the TLS certificate and key that Cert-Manager will generate
+echo "### Updating the Ingress resource"
+cat <<EOF > restaurants-app-ingress.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -201,83 +245,57 @@ spec:
             name: restaurants-app-service
             port:
               number: 80
-EOT
-)
-
-# Check if ClusterIssuer exists
-if ! kubectl get clusterissuer restaurants-app-tls > /dev/null 2>&1; then
-  echo "### Creating ClusterIssuer - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-  cat <<EOF > restaurants-app-clusterissuer.yaml
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod
-  labels:
-    app.kubernetes.io/managed-by: Helm
-  annotations:
-    meta.helm.sh/release-name: restaurants-app
-    meta.helm.sh/release-namespace: default
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: raz.shoham207@gmail.com
-    privateKeySecretRef:
-      name: letsencrypt-prod
-    solvers:
-    - http01:
-        ingress:
-          class: nginx
 EOF
 
-# Apply the YAML file
-  kubectl apply -f restaurants-app-clusterissuer.yaml
-else
-  echo "### ClusterIssuer 'letsencrypt-prod' already exists - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-fi
+INGRESS_CONFIG=$(cat restaurants-app-ingress.yaml)
 
-# Create the Certificate Configuration
-echo "### Creating the Certificate Configuration"
-CERTIFICATE_CONFIG=$(cat << EOT
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: restaurants-app-tls
-  namespace: default
-spec:
-  secretName: restaurants-app-tls
-  issuerRef:
-    name: letsencrypt-prod
-    kind: ClusterIssuer
-  commonName: your-ip-address.nip.io
-  dnsNames:
-    - your-ip-address.nip.io
-EOT
-)
+# 5. Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME
+# Get the External IP from a LoadBalancer service
+echo "### Getting the External IP from a LoadBalancer service"
+EXTERNAL_IP=$(kubectl get svc nginx-ingress-ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
+# Get the restaurants-app-tls full name
+echo "### Getting the restaurants-app-tls full name"
+TLS_SECRET_NAME=$(kubectl get secrets | grep "restaurants-app-tls" | awk '{print $1}')
 
-
-# Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME
 echo "### Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME"
-UPDATED_INGRESS_CONFIG=$(echo "$INGRESS_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
-UPDATED_INGRESS_CONFIG=$(echo "$UPDATED_INGRESS_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
+UPDATED_CLUSTERISSUER_CONFIG=$(echo "$CLUSTERISSUER_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
+UPDATED_CLUSTERISSUER_CONFIG=$(echo "$UPDATED_CLUSTERISSUER_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
 UPDATED_CERTIFICATE_CONFIG=$(echo "$CERTIFICATE_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
 UPDATED_CERTIFICATE_CONFIG=$(echo "$UPDATED_CERTIFICATE_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
+UPDATED_INGRESS_CONFIG=$(echo "$INGRESS_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
+UPDATED_INGRESS_CONFIG=$(echo "$UPDATED_INGRESS_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
 
 # Check if the variables are not empty
-if [ -z "$UPDATED_INGRESS_CONFIG" ]; then
-  echo "Error: UPDATED_INGRESS_CONFIG is empty"
+if [ -z "$UPDATED_CLUSTERISSUER_CONFIG" ]; then
+  echo "Error: UPDATED_CLUSTERISSUER_CONFIG is empty"
   exit 1
+else
+  echo "### UPDATED_CLUSTERISSUER_CONFIG: "
+  echo "$UPDATED_CLUSTERISSUER_CONFIG"
 fi
 
 if [ -z "$UPDATED_CERTIFICATE_CONFIG" ]; then
   echo "Error: UPDATED_CERTIFICATE_CONFIG is empty"
   exit 1
+else
+  echo "### UPDATED_CERTIFICATE_CONFIG: "
+  echo "$UPDATED_CERTIFICATE_CONFIG"
+fi
+
+if [ -z "$UPDATED_INGRESS_CONFIG" ]; then
+  echo "Error: UPDATED_INGRESS_CONFIG is empty"
+  exit 1
+else
+  echo "### UPDATED_INGRESS_CONFIG: "
+  echo "$UPDATED_INGRESS_CONFIG"
 fi
 
 # Apply the updated INGRESS_CONFIG and CERTIFICATE_CONFIG into the AKS
 echo "### Applying the updated INGRESS_CONFIG and CERTIFICATE_CONFIG into the AKS"
-echo "$UPDATED_INGRESS_CONFIG" | kubectl apply -f -
+echo "$UPDATED_CLUSTERISSUER_CONFIG" | kubectl apply -f -
 echo "$UPDATED_CERTIFICATE_CONFIG" | kubectl apply -f -
+echo "$UPDATED_INGRESS_CONFIG" | kubectl apply -f -
 
 # Authenticate with the AKS cluster
 echo "### Authenticating with the AKS cluster"
@@ -290,6 +308,9 @@ kubectl get nodes
 # Patch the Ingress resource
 echo "### Patching the Ingress resource"
 kubectl patch ingress restaurants-app-ingress -n default --type='json' -p='[ {"op": "add", "path": "/metadata/labels/app.kubernetes.io~1managed-by", "value": "Helm"}, {"op": "add", "path": "/metadata/annotations/meta.helm.sh~1release-name", "value": "restaurants-app"}, {"op": "add", "path": "/metadata/annotations/meta.helm.sh~1release-namespace", "value": "default"} ]'
+
+# Create the TLS certificate and key with the external IP
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/$EXTERNAL_IP"
 
 echo "#####################################################################################################"
 echo "## The URL for the application is: https://$EXTERNAL_IP/recommend?style=American&vegetarian=false ##"

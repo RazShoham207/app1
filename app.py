@@ -29,13 +29,8 @@ class Restaurant:
             return current_time >= open_time or current_time <= close_time
 
 restaurants = [
-    Restaurant("Pizza Hut", "Italian", "123 Main St", "09:00", "23:00", False, True),
-    Restaurant("Veggie Delight", "Vegetarian", "456 Elm St", "10:00", "22:00", True, True),
-    Restaurant("Sushi World", "Japanese", "789 Oak St", "11:00", "21:00", False, False),
-    Restaurant("Late Night Diner", "American", "101 Night St", "10:00", "02:00", False, True),
-    Restaurant("Very Late Night Diner", "American", "222 Night St", "11:00", "03:00", False, True),
-    Restaurant("Very very Late Night Diner", "American", "333 Night St", "12:00", "04:00", False, True),
-    Restaurant("Very very Late Night Diner", "American", "333 Night St", "12:00", "05:00", False, True),
+
+
     # Add more restaurants as needed
 ]
 

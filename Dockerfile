@@ -21,4 +21,4 @@ RUN pip show Flask Werkzeug
 EXPOSE 443
 
 # Run app.py when the container launches
-CMD ["gunicorn", "--certfile=/path/to/certfile", "--keyfile=/path/to/keyfile", "-b", "0.0.0.0:443", "app:app"]
+CMD ["gunicorn", "--certfile=tls.crt", "--keyfile=tls.key", "-b", "0.0.0.0:443", "app:app"]
