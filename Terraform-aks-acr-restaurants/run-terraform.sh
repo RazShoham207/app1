@@ -200,7 +200,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: restaurants-app-service
+            name: restaurants-app
             port:
               number: 80
 EOF
