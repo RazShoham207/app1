@@ -161,60 +161,13 @@ fi
 # Get the External IP from a LoadBalancer service
 EXTERNAL_IP=$(kubectl get svc nginx-ingress-ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-# An INI Configuration File for the Certificate
-cat <<EOF > openssl.cnf
-[req]
-distinguished_name = req_distinguished_name
-req_extensions = req_ext
-x509_extensions = v3_req
-prerequisiteprompt = no
-
-[req_distinguished_name]
-CN = 48.216.198.72.nip.io
-O = MyOrganization
-C = US
-
-[req_ext]
-subjectAltName = @alt_names
-
-[v3_req]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = 48.216.198.72.nip.io
-EOF
-
 # Generate a private key
 echo "### Generating a private key"
 openssl genrsa -out tls.key 2048
 
-# Create a configuration file for the certificate
-echo "### Creating a configuration file for the certificate"
-cat <<EOF > openssl.cnf
-[req]
-distinguished_name = req_distinguished_name
-req_extensions = req_ext
-x509_extensions = v3_req
-prompt = no
-
-[req_distinguished_name]
-CN = 48.216.198.72.nip.io
-O = MyOrganization
-C = US
-
-[req_ext]
-subjectAltName = @alt_names
-
-[v3_req]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = 48.216.198.72.nip.io
-EOF
-
 # Generate the self-signed certificate
 echo "### Generating the self-signed certificate"
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -config openssl.cnf
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=$EXTERNAL_IP.nip.io/O=Restaurants/C=US" -addext "subjectAltName=DNS:$EXTERNAL_IP.nip.io"
 
 # Create a Kubernetes secret to store the certificate and key
 echo "### Creating a Kubernetes secret"
@@ -251,10 +204,6 @@ spec:
             port:
               number: 80
 EOF
-
-# Apply the updated Ingress resource
-echo "### Applying the updated Ingress resource"
-kubectl apply -f restaurants-app-ingress.yaml
 
 INGRESS_CONFIG=$(cat restaurants-app-ingress.yaml)
 
