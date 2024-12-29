@@ -1,6 +1,6 @@
 #!/bin/bash
-
-echo "### Running Terraform - start"
+start_time=$(date +%s)
+echo "### Running Terraform - START - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 
 # Variables
 SUBSCRIPTION_ID="80fab2d0-ef24-4ff6-a7ed-02a816eee488"
@@ -61,7 +61,7 @@ else
 fi
 
 # Initialize Terraform
-echo "### Initializing Terraform"
+echo "### Initializing Terraform - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 terraform init -upgrade -reconfigure 
 
 # Generate the SSH Public key if it does not exist
@@ -93,11 +93,11 @@ terraform import azurerm_resource_group.restaurants_rg /subscriptions/$SUBSCRIPT
 terraform import azurerm_resource_group.devops_rg /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME
 
 # Create an execution plan and save it to a file
-echo "### Creating an execution plan"
+echo "### Creating an execution plan - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 terraform plan -out=tfplan
 
 # Apply the execution plan
-echo "### Applying the execution plan"
+echo "### Applying the execution plan - $(date +"%A, %B %d, %Y - %H:%M:%S")"
 terraform apply -auto-approve tfplan
 
 # Get the Kubernetes configuration from the Terraform state and store it in a file that kubectl can read
@@ -112,9 +112,65 @@ sed -i '/EOT/d' ./azurek8s
 # Set an environment variable so kubectl can pick up the correct config
 echo "### Setting an environment variable so kubectl can pick up the correct config"
 export KUBECONFIG=./azurek8s
+chmod 600 ./azurek8s
 
 # Verify the health of the cluster using the kubectl get nodes command
 echo "### Verifying the health of the cluster using the kubectl get nodes command"
 kubectl get nodes
 
-echo "### Running Terraform - end"
+# Attach the Azure Container Registry to the AKS cluster
+echo "### Attaching the Azure Container Registry to the AKS cluster - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+az aks update -n restaurants-aks -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr restaurantsacr
+
+# Check the health of the Azure Container Registry
+echo "### Checking the health of the Azure Container Registry - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+az acr check-health --name restaurantsacr --ignore-errors --yes
+
+# Create a Kubernetes secret for the ACR credentials
+echo "### Creating a Kubernetes secret for the ACR credentials - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+ACR_USERNAME=$(az acr credential show --name restaurantsacr --query "username" --output tsv)
+ACR_PASSWORD=$(az acr credential show --name restaurantsacr --query "passwords[0].value" --output tsv)
+
+# Create the ACR SECRET
+echo "### Creating the ACR SECRET"
+ACR_SECRET=$(cat << EOT
+apiVersion: v1
+kind: Secret
+metadata:
+  name: acr-secret
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: $(echo -n '{"auths":{"restaurantsacr.azurecr.io":{"username":"$ACR_USERNAME","password":"$ACR_PASSWORD","email":"raz.shoham207@gmail.com"}}}' | base64 -w 0)
+EOT
+)
+
+# Apply the ACR_SECRET into the AKS
+echo "### Applying the ACR SECRET into the AKS"
+echo "$ACR_SECRET" | kubectl apply -f -
+
+# Get the External IP from a LoadBalancer service
+EXTERNAL_IP=$(kubectl get svc restaurants-app -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+# Authenticate with the AKS cluster
+echo "### Authenticating with the AKS cluster"
+az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
+
+# Verify authentication
+echo "### Verifying authentication"
+kubectl get nodes
+
+echo "#####################################################################################################"
+echo "## The URL for the application is: http://$EXTERNAL_IP/recommend?style=American&vegetarian=false ##"
+echo "####################### Replcae style and vegetarian with the desired values ########################"
+echo "#####################################################################################################"
+echo ""
+echo ""
+echo "### Running Terraform - END - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+end_time=$(date +%s)
+# Calculate the duration
+duration=$((end_time - start_time))
+# Convert the duration to hours, minutes, and seconds
+hours=$((duration / 3600))
+minutes=$(( (duration % 3600) / 60 ))
+seconds=$((duration % 60))
+echo "### Total Duration: $hours hours, $minutes minutes, and $seconds seconds"
