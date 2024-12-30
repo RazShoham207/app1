@@ -1,5 +1,19 @@
 provider "azurerm" {
   features {}
+
+  subscription_id = "80fab2d0-ef24-4ff6-a7ed-02a816eee488"
+  client_id       = "8b1fe80d-d185-45dc-b711-6e1c6ad0b243"
+  client_secret   = "restaurants-sp-secret-value"
+  tenant_id       = "339e2a15-710e-4162-ab7e-8d1199b663b9"
+}
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "DevOps-rg"
+    storage_account_name = "restaurantstfstatesa"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
+  }
 }
 
 resource "azurerm_resource_group" "restaurants_rg" {
@@ -40,38 +54,13 @@ resource "azurerm_kubernetes_cluster" "k8s" {
   resource_group_name = azurerm_resource_group.restaurants_rg.name
   dns_prefix          = random_pet.azurerm_kubernetes_cluster_dns_prefix.id
 
+  default_node_pool {
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_DS2_v2"
+  }
+
   identity {
     type = "SystemAssigned"
-  }
-
-  default_node_pool {
-    name       = "agentpool"
-    vm_size    = "Standard_D2_v2"
-    node_count = var.node_count
-  }
-
-  linux_profile {
-    admin_username = var.username
-
-    ssh_key {
-      key_data = jsondecode(azapi_resource.ssh_public_key.body).properties.publicKey
-    }
-  }
-
-  network_profile {
-    network_plugin    = "kubenet"
-    load_balancer_sku = "standard"
-  }
-}
-
-output "resource_group_name" {
-  value = azurerm_resource_group.restaurants_rg.name
-}
-
-terraform {
-  backend "azurerm" {
-    storage_account_name = "restaurantstfstatesa"
-    container_name       = "tfstate"
-    key                  = "terraform.tfstate"
   }
 }
