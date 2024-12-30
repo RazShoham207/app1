@@ -45,7 +45,13 @@ jobs:
       with:
         azcliversion: '2.30.0'
         inlineScript: |
-          az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
+          az aks get-credentials --resource-group restaurants-rg --name restaurants-aks
+          curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          mv ./kubectl /usr/local/bin/kubectl
+          # kubectl apply -f k8s/deployment.yml
+          CONTEXT_NAME=$(kubectl config get-contexts -o name | grep restaurants-aks)
+          kubectl config use-context $CONTEXT_NAME
 
     - name: Set up kubectl
       uses: azure/setup-kubectl@v1
