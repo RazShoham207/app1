@@ -46,6 +46,9 @@ jobs:
         azcliversion: '2.30.0'
         inlineScript: |
           az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
+          kubectl config view
+          kubectl config current-context
+          kubectl get nodes
 
     - name: Set up kubectl
       uses: azure/setup-kubectl@v1
