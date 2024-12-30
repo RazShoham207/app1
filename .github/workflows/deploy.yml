@@ -67,9 +67,13 @@ jobs:
 
     - name: Deploy to AKS using Helm
       run: |
-        if [ -d "./restaurants-charts" ]; then
-          helm upgrade --install restaurants-app ./restaurants-charts --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+        RELEASE_NAME="restaurants-app"
+        CHART_PATH="./restaurants-charts"
+
+        if helm ls --namespace default | grep -q $RELEASE_NAME; then
+          echo "### Upgrading existing release"
+          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         else
-          echo "Helm chart directory './restaurants-charts' not found. Please ensure the directory exists and is correctly named."
-          exit 1
+          echo "### Installing new release"
+          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         fi
