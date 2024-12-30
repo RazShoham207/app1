@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - http_connection
 
 jobs:
   build:
