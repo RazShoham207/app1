@@ -52,6 +52,11 @@ jobs:
       with:
         version: 'latest'
 
+    - name: Verify Kubernetes context
+      run: |
+        kubectl config current-context
+        kubectl get nodes
+
     - name: Set up Helm
       uses: azure/setup-helm@v1
 
