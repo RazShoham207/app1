@@ -1,6 +1,6 @@
 #!/bin/bash
 start_time=$(date +%s)
-echo "### Running Terraform - START - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Running Terraform - START - $(date '+%d-%m-%Y %H:%M:%S')"
 
 # Variables
 SUBSCRIPTION_ID="80fab2d0-ef24-4ff6-a7ed-02a816eee488"
@@ -51,7 +51,7 @@ else
   az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
 fi
 
-# Check if the restaurants resource group exists
+# Check if the Restaurants-rg resource group exists
 echo "### Checking if the resource group $RESTAURANTS_RESOURCE_GROUP_NAME exists"
 if az group show --name $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
   echo "### Resource group $RESTAURANTS_RESOURCE_GROUP_NAME already exists. Skipping creation."
@@ -61,7 +61,7 @@ else
 fi
 
 # Initialize Terraform
-echo "### Initializing Terraform - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Initializing Terraform - $(date '+%d-%m-%Y %H:%M:%S')"
 terraform init -upgrade -reconfigure 
 
 # Generate the SSH Public key if it does not exist
@@ -93,11 +93,11 @@ terraform import azurerm_resource_group.restaurants_rg /subscriptions/$SUBSCRIPT
 terraform import azurerm_resource_group.devops_rg /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME
 
 # Create an execution plan and save it to a file
-echo "### Creating an execution plan - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Creating an execution plan - $(date '+%d-%m-%Y %H:%M:%S')"
 terraform plan -out=tfplan
 
 # Apply the execution plan
-echo "### Applying the execution plan - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Applying the execution plan - $(date '+%d-%m-%Y %H:%M:%S')"
 terraform apply -auto-approve tfplan
 
 # Get the Kubernetes configuration from the Terraform state and store it in a file that kubectl can read
@@ -119,15 +119,15 @@ echo "### Verifying the health of the cluster using the kubectl get nodes comman
 kubectl get nodes
 
 # Attach the Azure Container Registry to the AKS cluster
-echo "### Attaching the Azure Container Registry to the AKS cluster - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Attaching the Azure Container Registry to the AKS cluster - $(date '+%d-%m-%Y %H:%M:%S')"
 az aks update -n restaurants-aks -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr restaurantsacr
 
 # Check the health of the Azure Container Registry
-echo "### Checking the health of the Azure Container Registry - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Checking the health of the Azure Container Registry - $(date '+%d-%m-%Y %H:%M:%S')"
 az acr check-health --name restaurantsacr --ignore-errors --yes
 
 # Create a Kubernetes secret for the ACR credentials
-echo "### Creating a Kubernetes secret for the ACR credentials - $(date +"%A, %B %d, %Y - %H:%M:%S")"
+echo "### Creating a Kubernetes secret for the ACR credentials - $(date '+%d-%m-%Y %H:%M:%S')"
 ACR_USERNAME=$(az acr credential show --name restaurantsacr --query "username" --output tsv)
 ACR_PASSWORD=$(az acr credential show --name restaurantsacr --query "passwords[0].value" --output tsv)
 
@@ -148,262 +148,6 @@ EOT
 echo "### Applying the ACR SECRET into the AKS"
 echo "$ACR_SECRET" | kubectl apply -f -
 
-# Check if NGINX Ingress Controller is already installed
-if ! helm list -q | grep -q nginx-ingress; then
-  echo "### Installing NGINX Ingress Controller - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-  helm repo update
-  helm install nginx-ingress ingress-nginx/ingress-nginx
-else
-  echo "### NGINX Ingress Controller is already installed - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-fi
-
-# Get the External IP from a LoadBalancer service
-EXTERNAL_IP=$(kubectl get svc nginx-ingress-ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-# Generate a private key
-echo "### Generating a private key"
-openssl genrsa -out tls.key 2048
-
-# Generate the self-signed certificate
-echo "### Generating the self-signed certificate"
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=$EXTERNAL_IP.nip.io/O=Restaurants/C=US" -addext "subjectAltName=DNS:$EXTERNAL_IP.nip.io"
-
-# Create a Kubernetes secret to store the certificate and key
-echo "### Creating a Kubernetes secret"
-kubectl create secret tls restaurants-app-tls --cert=tls.crt --key=tls.key
-
-# Update the Ingress resource to use the self-signed certificate
-echo "### Updating the Ingress resource"
-cat <<EOF > restaurants-app-ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: restaurants-app-ingress
-  namespace: default
-  labels:
-    app.kubernetes.io/managed-by: Helm
-  annotations:
-    meta.helm.sh/release-name: restaurants-app
-    meta.helm.sh/release-namespace: default
-spec:
-  ingressClassName: nginx
-  tls:
-  - hosts:
-    - your-ip-address.nip.io
-    secretName: restaurants-app-tls
-  rules:
-  - host: your-ip-address.nip.io
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: restaurants-app
-            port:
-              number: 80
-EOF
-
-INGRESS_CONFIG=$(cat restaurants-app-ingress.yaml)
-
-# echo "### Replace your-ip-address with the value of $EXTERNAL_IP"
-UPDATED_INGRESS_CONFIG=$(echo "$INGRESS_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
-
-# # Check if the variables are not empty
-if [ -z "$UPDATED_INGRESS_CONFIG" ]; then
-  echo "Error: UPDATED_INGRESS_CONFIG is empty"
-  exit 1
-else
-  echo "### UPDATED_INGRESS_CONFIG: "
-  echo "$UPDATED_INGRESS_CONFIG"
-fi
-
-# Applying the updated Ingress into the AKS
-echo "$UPDATED_INGRESS_CONFIG" | kubectl apply -f -
-
-# # Setup the Certificates for the Ingress Controller
-# # Do not use the ClusterIssuer, Certificate and Ingress in Helm Chart
-# # 1. Install Cert-Manager
-# # Cert-Manager is a Kubernetes add-on that automates the management and issuance of TLS certificates
-# echo "### Installing Cert-Manager"
-# kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
-
-# # 2. Create the ClusterIssuer for Let's Encrypt Production Certificate Authority (CA) - letsencrypt-prod
-# # The ClusterIssuer resource represents a certificate authority (CA) that should be used to sign certificates
-# echo "### Creating the ClusterIssuer for Let's Encrypt Production Certificate Authority (CA) - letsencrypt-prod"
-# cat <<EOF > restaurants-app-clusterissuer.yaml
-# apiVersion: cert-manager.io/v1
-# kind: ClusterIssuer
-# metadata:
-#   name: letsencrypt-prod
-#   labels:
-#     app.kubernetes.io/managed-by: Helm
-#   annotations:
-#     meta.helm.sh/release-name: restaurants-app
-#     meta.helm.sh/release-namespace: default
-# spec:
-#   acme:
-#     server: https://acme-v02.api.letsencrypt.org/directory
-#     email: raz.shoham207@gmail.com
-#     privateKeySecretRef:
-#       name: letsencrypt-prod
-#     solvers:
-#     - http01:
-#         ingress:
-#           class: nginx
-# EOF
-
-# CLUSTERISSUER_CONFIG=$(cat restaurants-app-clusterissuer.yaml)
-
-# # 3. Create the Certificate resource
-# # Define a Certificate resource to request a TLS certificate for your application from Let's Encrypt using the ClusterIssuer
-# echo "### Creating the Certificate resource"
-# cat <<EOF > restaurants-app-certificate.yaml
-# apiVersion: cert-manager.io/v1
-# kind: Certificate
-# metadata:
-#   name: restaurants-app-tls
-#   namespace: default
-#   labels:
-#     app.kubernetes.io/managed-by: Helm
-#   annotations:
-#     meta.helm.sh/release-name: restaurants-app
-#     meta.helm.sh/release-namespace: default
-# spec:
-#   secretName: restaurants-app-tls
-#   issuerRef:
-#     name: letsencrypt-prod
-#     kind: ClusterIssuer
-#   commonName: your-ip-address.nip.io
-#   dnsNames:
-#     - your-ip-address.nip.io
-# EOF
-
-# CERTIFICATE_CONFIG=$(cat restaurants-app-certificate.yaml)
-
-# # 4. Update the Ingress resource
-# # Update the Ingress resource to use the TLS certificate and key that Cert-Manager will generate
-# echo "### Updating the Ingress resource"
-# cat <<EOF > restaurants-app-ingress.yaml
-# apiVersion: networking.k8s.io/v1
-# kind: Ingress
-# metadata:
-#   name: restaurants-app-ingress
-#   namespace: default
-#   labels:
-#     app.kubernetes.io/managed-by: Helm
-#   annotations:
-#     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-#     meta.helm.sh/release-name: restaurants-app
-#     meta.helm.sh/release-namespace: default
-# spec:
-#   ingressClassName: nginx
-#   tls:
-#   - hosts:
-#     - your-ip-address.nip.io
-#     secretName: restaurants-app-tls
-#   rules:
-#   - host: your-ip-address.nip.io
-#     http:
-#       paths:
-#       - path: /
-#         pathType: Prefix
-#         backend:
-#           service:
-#             name: restaurants-app-service
-#             port:
-#               number: 80
-# EOF
-
-# INGRESS_CONFIG=$(cat restaurants-app-ingress.yaml)
-
-# # 5. Update the ACME Ingress resource
-# # Update the ACME Ingress resource to use the HTTP01 challenge
-# echo "### Updating the Ingress resource"
-# cat <<EOF > restaurants-acme-ingress.yaml
-# apiVersion: networking.k8s.io/v1
-# kind: Ingress
-# metadata:
-#   name: cm-acme-http-solver
-#   namespace: default
-#   annotations:
-#     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-#     spec.ingressClassName: "nginx"
-# spec:
-#   rules:
-#   - host: your-ip-address.nip.io
-#     http:
-#       paths:
-#       - path: /.well-known/acme-challenge/
-#         pathType: ImplementationSpecific
-#         backend:
-#           service:
-#             name: cm-acme-http-solver
-#             port:
-#               number: 8089
-# EOF
-
-# INGRESS_ACME_CONFIG=$(cat restaurants-acme-ingress.yaml)
-
-# # 6. Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME
-# # Get the External IP from a LoadBalancer service
-# echo "### Getting the External IP from a LoadBalancer service"
-# EXTERNAL_IP=$(kubectl get svc nginx-ingress-ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-# # # Get the restaurants-app-tls full name
-# # echo "### Getting the restaurants-app-tls full name"
-# # TLS_SECRET_NAME=$(kubectl get secrets | grep "restaurants-app-tls" | awk '{print $1}')
-
-# echo "### Replace your-ip-address with the value of $EXTERNAL_IP and restaurants-app-tls with the value of $TLS_SECRET_NAME"
-# UPDATED_CLUSTERISSUER_CONFIG=$(echo "$CLUSTERISSUER_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
-# # UPDATED_CLUSTERISSUER_CONFIG=$(echo "$UPDATED_CLUSTERISSUER_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
-# UPDATED_CERTIFICATE_CONFIG=$(echo "$CERTIFICATE_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
-# # UPDATED_CERTIFICATE_CONFIG=$(echo "$UPDATED_CERTIFICATE_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
-# UPDATED_INGRESS_CONFIG=$(echo "$INGRESS_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
-# # UPDATED_INGRESS_CONFIG=$(echo "$UPDATED_INGRESS_CONFIG" | sed "s/restaurants-app-tls/$TLS_SECRET_NAME/g")
-# UPDATED_ACME_INGRESS_CONFIG=$(echo "$INGRESS_ACME_CONFIG" | sed "s/your-ip-address/$EXTERNAL_IP/g")
-
-# # Check if the variables are not empty
-# if [ -z "$UPDATED_CLUSTERISSUER_CONFIG" ]; then
-#   echo "Error: UPDATED_CLUSTERISSUER_CONFIG is empty"
-#   exit 1
-# else
-#   echo "### UPDATED_CLUSTERISSUER_CONFIG: "
-#   echo "$UPDATED_CLUSTERISSUER_CONFIG"
-# fi
-
-# if [ -z "$UPDATED_CERTIFICATE_CONFIG" ]; then
-#   echo "Error: UPDATED_CERTIFICATE_CONFIG is empty"
-#   exit 1
-# else
-#   echo "### UPDATED_CERTIFICATE_CONFIG: "
-#   echo "$UPDATED_CERTIFICATE_CONFIG"
-# fi
-
-# if [ -z "$UPDATED_INGRESS_CONFIG" ]; then
-#   echo "Error: UPDATED_INGRESS_CONFIG is empty"
-#   exit 1
-# else
-#   echo "### UPDATED_INGRESS_CONFIG: "
-#   echo "$UPDATED_INGRESS_CONFIG"
-# fi
-
-# if [ -z "$UPDATED_ACME_INGRESS_CONFIG" ]; then
-#   echo "Error: UPDATED_ACME_INGRESS_CONFIG is empty"
-#   exit 1
-# else
-#   echo "### UPDATED_ACME_INGRESS_CONFIG: "
-#   echo "$UPDATED_ACME_INGRESS_CONFIG"
-# fi
-
-# # Applying the updated ClusterIssuer, Curtificate, Ingress and ACME Ingress into the AKS
-# echo "### Applying the updated ClusterIssuer, Curtificate, Ingress and ACME Ingress into the AKS"
-# echo "$UPDATED_CLUSTERISSUER_CONFIG" | kubectl apply -f -
-# echo "$UPDATED_CERTIFICATE_CONFIG" | kubectl apply -f -
-# echo "$UPDATED_INGRESS_CONFIG" | kubectl apply -f -
-# echo "$UPDATED_ACME_INGRESS_CONFIG" | kubectl apply -f -
-
 # Authenticate with the AKS cluster
 echo "### Authenticating with the AKS cluster"
 az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
@@ -412,18 +156,35 @@ az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
 echo "### Verifying authentication"
 kubectl get nodes
 
-echo "#####################################################################################################"
-echo "## The URL for the application is: https://$EXTERNAL_IP/recommend?style=American&vegetarian=false ##"
-echo "####################### Replcae style and vegetarian with the desired values ########################"
-echo "#####################################################################################################"
-echo ""
-echo ""
-echo "### Running Terraform - END - $(date +"%A, %B %d, %Y - %H:%M:%S")"
-end_time=$(date +%s)
-# Calculate the duration
-duration=$((end_time - start_time))
-# Convert the duration to hours, minutes, and seconds
-hours=$((duration / 3600))
-minutes=$(( (duration % 3600) / 60 ))
-seconds=$((duration % 60))
-echo "### Total Duration: $hours hours, $minutes minutes, and $seconds seconds"
+# Check if the restaurants-app service exists
+if kubectl get svc restaurants-app -n default > /dev/null 2>&1; then
+  # Get the External IP from a LoadBalancer service
+  EXTERNAL_IP=$(kubectl get svc restaurants-app -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "#####################################################################################################"
+  echo "## The URL for the application is: http://$EXTERNAL_IP/recommend?style=American&vegetarian=false ##"
+  echo "####################### Replcae style and vegetarian with the desired values ########################"
+  echo "#####################################################################################################"
+  echo ""
+  echo ""
+  echo "### Running Terraform - END - $(date '+%d-%m-%Y %H:%M:%S')"
+  end_time=$(date +%s)
+  # Calculate the duration
+  duration=$((end_time - start_time))
+  # Convert the duration to hours, minutes, and seconds
+  hours=$((duration / 3600))
+  minutes=$(( (duration % 3600) / 60 ))
+  seconds=$((duration % 60))
+  echo "### Total Duration: $hours hours, $minutes minutes, and $seconds seconds"
+else
+  echo "This is the first installation and there was no deploy yet. Therfore the restaurants-app service does not exist yet."
+  echo ""
+  echo "### Running Terraform - END - $(date '+%d-%m-%Y %H:%M:%S')"
+  end_time=$(date +%s)
+  # Calculate the duration
+  duration=$((end_time - start_time))
+  # Convert the duration to hours, minutes, and seconds
+  hours=$((duration / 3600))
+  minutes=$(( (duration % 3600) / 60 ))
+  seconds=$((duration % 60))
+  echo "### Total Duration: $hours hours, $minutes minutes, and $seconds seconds"
+fi
