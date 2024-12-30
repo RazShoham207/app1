@@ -50,10 +50,11 @@ jobs:
       with:
         azcliversion: '2.30.0'
         inlineScript: |
-          az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
-          kubectl config view
-          kubectl config current-context
-          kubectl get nodes
+          echo "Azure CLI setup complete"
+
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
 
     - name: Verify Kubernetes context
       run: |
