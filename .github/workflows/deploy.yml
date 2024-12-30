@@ -57,9 +57,9 @@ jobs:
 
     - name: Deploy to AKS using Helm
       run: |
-        if [ -d "./helm-chart" ]; then
-          helm upgrade --install restaurants-app ./helm-chart --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+        if [ -d "./restaurants-charts" ]; then
+          helm upgrade --install restaurants-app ./restaurants-charts --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         else
-          echo "Helm chart directory './helm-chart' not found"
+          echo "Helm chart directory './restaurants-charts' not found. Please ensure the directory exists and is correctly named."
           exit 1
         fi
