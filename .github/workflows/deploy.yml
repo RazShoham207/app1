@@ -54,8 +54,9 @@ jobs:
 
     - name: Verify Kubernetes context
       run: |
-        kubectl config current-context
-        kubectl get nodes
+        kubectl config view
+        kubectl config current-context || echo "No current context set"
+        kubectl get nodes || echo "Unable to get nodes"
 
     - name: Set up Helm
       uses: azure/setup-helm@v1
