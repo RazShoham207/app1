@@ -1,4 +1,4 @@
-name: Deploy to AKS
+name: Deploy to AKS using Helm
 
 on:
   push:
@@ -43,24 +43,16 @@ jobs:
     - name: Set up Azure CLI and kubectl
       uses: azure/CLI@v1
       with:
-        azcliversion: latest
-        inlineScript: |
-          az aks get-credentials --resource-group restaurants-rg --name restaurants-aks
-          curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x ./kubectl
-          mv ./kubectl /usr/local/bin/kubectl
-          # kubectl apply -f k8s/deployment.yml
-          CONTEXT_NAME=$(kubectl config get-contexts -o name | grep restaurants-aks)
-          kubectl config use-context $CONTEXT_NAME
-
-    - name: Login to Azure
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-      # run: az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+        azcliversion: '2.30.0'
+        kubectlversion: '1.21.0'
 
     - name: Get AKS credentials
-      run: az aks get-credentials --resource-group restaurants-rg --name restaurants-aks
+      run: |
+        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
 
-    - name: Deploy Helm chart
-      run: helm upgrade --install restaurants-app ./restaurants-charts --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --set imagePullSecrets[0].name=acr-secret
+    - name: Set up Helm
+      uses: azure/setup-helm@v1
+
+    - name: Deploy to AKS using Helm
+      run: |
+        helm upgrade --install restaurants-app ./helm-chart --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
