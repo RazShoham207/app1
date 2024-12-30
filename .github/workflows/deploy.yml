@@ -65,6 +65,10 @@ jobs:
     - name: Set up Helm
       uses: azure/setup-helm@v1
 
+    - name: Clean up existing ServiceAccount
+      run: |
+        kubectl delete serviceaccount restaurants-app --ignore-not-found
+
     - name: Deploy to AKS using Helm
       run: |
         RELEASE_NAME="restaurants-app"
