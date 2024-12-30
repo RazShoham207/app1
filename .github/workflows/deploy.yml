@@ -40,6 +40,11 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v1
+      with:
+        version: 'latest'
+
     - name: Set up Azure CLI
       uses: azure/CLI@v1
       with:
@@ -49,11 +54,6 @@ jobs:
           kubectl config view
           kubectl config current-context
           kubectl get nodes
-
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v1
-      with:
-        version: 'latest'
 
     - name: Verify Kubernetes context
       run: |
