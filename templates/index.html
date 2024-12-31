@@ -54,11 +54,21 @@
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
         }
-            .flip-box-front {
+        .flip-box-front {
             background-color: #bbb;
             color: black;
+            position: relative;
         }
-            .flip-box-back {
+        .overlay-text {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .flip-box-back {
             background-color: #555;
             color: white;
             transform: rotateY(180deg);
@@ -83,6 +93,7 @@
             <div class="flip-box-front">
                 <!-- <img src="static/my_place.jpg" alt="חייקל'ה" style="width:600px;height:400px"> -->
                 <img src="static/my_place.jpg" class="img-fluid" alt="Responsive image">
+                <div class="overlay-text">העבר את העכבר על התמונה ומחוצה לה</div>
             </div>
             <div class="flip-box-back">
                 <h2>חייקל'ה</h2>
@@ -101,10 +112,10 @@
                     <li>Restaurant("Day time", "American", "333 Night St", "08:00", "16:00", False, True)</li>
                     <!-- Add more restaurants as needed -->
                 </ul>
-            <p>תודה</p>
-          </div>
+                <p>תודה</p>
+            </div>
         </div>
-      </div>
+    </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
@@ -113,9 +124,13 @@
 
             // Replace main braces and brackets with spans
             jsonContent = jsonContent.replace(/({)/g, '<span class="brace">$1</span>');
-            jsonContent = jsonContent.replace(/(\[)/g, '<span class="bracket">$1</span>');
+            jsonContent = jsonContent.replace(/(
+
+\[)/g, '<span class="bracket">$1</span>');
             jsonContent = jsonContent.replace(/(})/g, '<span class="brace">$1</span>');
-            jsonContent = jsonContent.replace(/(\])/g, '<span class="bracket">$1</span>');
+            jsonContent = jsonContent.replace(/(\]
+
+)/g, '<span class="bracket">$1</span>');
             preElement.innerHTML = jsonContent;
         });
     </script>
