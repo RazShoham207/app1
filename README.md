@@ -1,3 +1,3 @@
-# Wellcome to the Restaurants Recomandation application
+# Welcome to the Restaurants Recommendation application
 
 For Installation instraction see the Wiki
