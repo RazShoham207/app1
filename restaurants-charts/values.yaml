@@ -9,7 +9,7 @@ imagePullSecrets:
   - name: acr-secret
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 80
 
 hpa:
