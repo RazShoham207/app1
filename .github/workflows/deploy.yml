@@ -83,6 +83,8 @@ jobs:
         fi
         echo "helm init"
         helm init
+        echo "helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx"
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
         echo "### helm repo update"
         helm repo update
         echo "### helm install $RELEASE_NAME ingress-nginx/ingress-nginx"
