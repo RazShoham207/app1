@@ -81,11 +81,10 @@ jobs:
           echo "### Installing new release"
           helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         fi
-        echo "helm init"
-        helm init
-        echo "helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx"
-        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-        echo "### helm repo update"
-        helm repo update
-        echo "### helm install $RELEASE_NAME ingress-nginx/ingress-nginx"
-        helm install $RELEASE_NAME ingress-nginx/ingress-nginx
+        echo "Installing ingress-nginx"
+        controller_tag=$(curl -s https://api.github.com/repos/kubernetes/ingress-nginx/releases/latest | grep tag_name | cut -d '"' -f 4)
+        wget https://github.com/kubernetes/ingress-nginx/archive/refs/tags/${controller_tag}.tar.gz
+        tar xvf ${controller_tag}.tar.gz
+        cd ingress-nginx-${controller_tag}/charts/ingress-nginx/
+        kubectl create namespace ingress-nginx
+        helm install -n ingress-nginx ingress-nginx  -f values.yaml .
