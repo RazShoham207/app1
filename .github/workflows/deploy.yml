@@ -67,6 +67,11 @@ jobs:
       with:
         version: 'latest'
 
+    - name: Initialize Helm Home Directory
+      run: |
+        mkdir -p ~/.helm/repository
+        touch ~/.helm/repository/repositories.yaml
+
     - name: Initialize Helm Repositories
       run: |
         helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
