@@ -81,4 +81,7 @@ jobs:
           echo "### Installing new release"
           helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         fi
+        echo "### helm repo update"
+        helm repo update
+        echo "### helm install $RELEASE_NAME ingress-nginx/ingress-nginx"
         helm install $RELEASE_NAME ingress-nginx/ingress-nginx
