@@ -1,5 +1,5 @@
 {{- if .Values.hpa.enabled }}
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "restaurants-app.fullname" . }}
@@ -10,11 +10,5 @@ spec:
     name: {{ include "restaurants-app.fullname" . }}
   minReplicas: {{ .Values.hpa.minReplicas }}
   maxReplicas: {{ .Values.hpa.maxReplicas }}
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: {{ .Values.hpa.targetCPUUtilizationPercentage }}
+  targetCPUUtilizationPercentage: {{ .Values.hpa.targetCPUUtilizationPercentage }}
 {{- end }}
