@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "restaurants-app.fullname" . }}
+  name: restaurants-app
 spec:
-  type: {{ .Values.service.type }}
+  type: LoadBalancer
   ports:
-  - port: {{ .Values.service.port }}
-    targetPort: {{ .Values.service.targetPort }}
+    - port: 80
+      targetPort: 80
   selector:
-    app: {{ include "restaurants-app.name" . }}
+    app: restaurants-app
