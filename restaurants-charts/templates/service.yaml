@@ -6,6 +6,6 @@ spec:
   type: {{ .Values.service.type }}
   ports:
   - port: {{ .Values.service.port }}
-    targetPort: 443
+    targetPort: 80
   selector:
     app: {{ include "restaurants-app.name" . }}
