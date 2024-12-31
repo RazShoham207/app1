@@ -43,3 +43,9 @@ variable "devops_rg_name" {
   description = "The name of the resource group for DevOps resources."
   default     = "DevOps-rg"
 }
+
+variable "restaurants_rg_location" {
+  description = "The location of the Restaurants resource group"
+  type        = string
+  default     = "eastus"
+}
