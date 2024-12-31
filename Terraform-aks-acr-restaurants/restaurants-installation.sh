@@ -9,9 +9,28 @@ DEVOPS_RESOURCE_GROUP_NAME="DevOps-rg"
 STORAGE_ACCOUNT_NAME="restaurantstfstatesa"
 CONTAINER_NAME="tfstate"
 RESTAURANTS_RESOURCE_GROUP_NAME="Restaurants-rg"
+RESTAURANTS_RESOURCE_GROUP_LOCATION="eastus"
 CLIENT_ID="8b1fe80d-d185-45dc-b711-6e1c6ad0b243"
 CLIENT_SECRET="<restaurants-sp-secret-value>"
 TENANT_ID="339e2a15-710e-4162-ab7e-8d1199b663b9"
+AKS_CLUSTER_NAME="restaurants-aks"
+
+# Flag to determine if only plan should be run
+RUN_PLAN_ONLY=false
+
+# Parse command line arguments
+for arg in "$@"
+do
+  case $arg in
+    --plan)
+    RUN_PLAN_ONLY=true
+    shift # Remove --plan from processing
+    ;;
+    *)
+    shift # Remove generic argument from processing
+    ;;
+  esac
+done
 
 authenticate_azure() {
   echo "### Authenticating with Azure using Service Principal"
@@ -34,20 +53,9 @@ initialize_terraform() {
   terraform init -upgrade -reconfigure -backend-config="access_key=$STORAGE_ACCOUNT_KEY"
 }
 
-import_resource_group() {
-  local rg_name=$1
-  local rg_id=$2
-  echo "### Importing resource group $rg_name into the state"
-  if ! terraform state list | grep -q "azurerm_resource_group.$rg_name"; then
-    terraform import azurerm_resource_group.$rg_name $rg_id
-  else
-    echo "### Resource group $rg_name is already managed by Terraform. Skipping import."
-  fi
-}
-
 create_execution_plan() {
   echo "### Creating an execution plan - $(date '+%d-%m-%Y %H:%M:%S')"
-  terraform plan -out=tfplan
+  terraform plan -out=tfplan -var="devops_rg_name=$DEVOPS_RESOURCE_GROUP_NAME" -var="restaurants_rg_name=$RESTAURANTS_RESOURCE_GROUP_NAME" -var="restaurants_rg_location=$RESTAURANTS_RESOURCE_GROUP_LOCATION"
 }
 
 apply_execution_plan() {
@@ -55,30 +63,15 @@ apply_execution_plan() {
   terraform apply -auto-approve tfplan
 }
 
-get_kube_config() {
-  echo "### Getting the Kubernetes configuration from the Terraform state"
-  terraform output -raw kube_config > ./azurek8s
-}
-
-remove_resource_group_from_state() {
-  local rg_name=$1
-  echo "### Checking if $rg_name exists in the state"
-  if terraform state list | grep -q "azurerm_resource_group.$rg_name"; then
-    echo "### Removing $rg_name from the state"
-    terraform state rm azurerm_resource_group.$rg_name
-  else
-    echo "### $rg_name does not exist in the state. Skipping removal."
-  fi
-}
-
 check_and_create_resource_group() {
   local rg_name=$1
+  local rg_location=$2
   echo "### Checking if the resource group $rg_name exists"
   if az group show --name $rg_name &> /dev/null; then
     echo "### Resource group $rg_name already exists. Skipping creation."
   else
     echo "### Creating resource group $rg_name"
-    az group create --name $rg_name --location eastus
+    az group create --name $rg_name --location $rg_location
   fi
 }
 
@@ -109,30 +102,24 @@ generate_ssh_key() {
   fi
 }
 
-refresh_resource_groups() {
-  # List the current state and filter for DevOps-rg
-  echo "### Listing the current state"
+remove_resource_group_from_state() {
+  local rg_name=$1
+  echo "### Checking if $rg_name exists in the state"
   terraform state list
-
-  # Remove existing resource groups from the state if they exist
-  if terraform state list | grep -q "data.azurerm_resource_group.devops_rg"; then
-    echo "### Removing devops_rg from the state"
-    terraform state rm data.azurerm_resource_group.devops_rg
+  if $rg_name="devops_rg"; then
+    terraform state list "data.azurerm_resource_group.$rg_name"
+    echo "### Removing $rg_name from the state"
+    terraform state rm "data.azurerm_resource_group.$rg_name"
+  elif $rg_name="restaurants-rg"; then
+    terraform state list "azurerm_resource_group.$rg_name"
+    echo "### Removing $rg_name from the state"
+    terraform state rm "azurerm_resource_group.$rg_name"
   else
-    echo "### devops_rg does not exist in the state. Skipping removal."
+    echo "### $rg_name does not exist in the state. Skipping removal."
   fi
-
-  if terraform state list | grep -q "azurerm_resource_group.restaurants_rg"; then
-    echo "### Removing restaurants_rg from the state"
-    terraform state rm azurerm_resource_group.restaurants_rg
-  else
-    echo "### restaurants_rg does not exist in the state. Skipping removal."
-  fi
-
-  # Import existing resource groups into the state again
-  import_resource_group "restaurants_rg" "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESTAURANTS_RESOURCE_GROUP_NAME"
-  import_resource_group "devops_rg" "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME"
 }
+
+
 
 main() {
   authenticate_azure
@@ -140,23 +127,12 @@ main() {
   get_storage_account_key
   initialize_terraform
 
-  # Import existing resource groups into the state
-  import_resource_group "restaurants_rg" "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESTAURANTS_RESOURCE_GROUP_NAME"
-  import_resource_group "devops_rg" "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME"
-
-  # Refresh resource groups
-  refresh_resource_groups
-
-  create_execution_plan
-  apply_execution_plan
-  get_kube_config
-
-  # Refresh resource groups
-  refresh_resource_groups
+  # Generate SSH key if it does not exist
+  generate_ssh_key
 
   # Check and create resource groups and storage account
-  check_and_create_resource_group $DEVOPS_RESOURCE_GROUP_NAME
-  check_and_create_resource_group $RESTAURANTS_RESOURCE_GROUP_NAME
+  check_and_create_resource_group $DEVOPS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
+  check_and_create_resource_group $RESTAURANTS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
   check_and_create_storage_account
   get_storage_account_key
   check_and_create_storage_container
@@ -164,16 +140,17 @@ main() {
   # Initialize Terraform again
   initialize_terraform
 
-  # Generate SSH key if it does not exist
-  generate_ssh_key
-
-  # Initialize Terraform again
-  initialize_terraform
-
-  # Refresh resource groups
-  refresh_resource_groups
+  # Remove resource groups from Terraform state if they exist
+  remove_resource_group_from_state "devops_rg"
+  remove_resource_group_from_state "restaurants_rg"
 
   create_execution_plan
+
+  if [ "$RUN_PLAN_ONLY" = true ]; then
+    echo "### Terraform plan has been created. Exiting as --plan flag was provided."
+    exit 0
+  fi
+
   apply_execution_plan
   get_kube_config
 
@@ -223,11 +200,31 @@ EOT
 
   # Authenticate with the AKS cluster
   echo "### Authenticating with the AKS cluster"
-  az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
+  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME
 
   # Verify authentication
   echo "### Verifying authentication"
   kubectl get nodes
+
+  # Assign the Owner Role to the Service Principal
+  echo "### Assigning the Owner Role to the Service Principal"
+  az role assignment create --assignee $CLIENT_ID --role Owner --scope /subscriptions/$SUBSCRIPTION_ID
+
+  # # Verify Role Assignment
+  # echo "### Verify Role Assignment"
+  # az role assignment list --assignee $CLIENT_ID --scope /subscriptions/$SUBSCRIPTION_ID
+
+  # # Assign Reader role on the Resource Group
+  # echo "### Assign Reader role on the Resource Group"
+  # az role assignment create --assignee $CLIENT_ID --role Reader --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESTAURANTS_RESOURCE_GROUP_NAME
+
+  # # Assign Contributor role on the AKS Cluster
+  # echo "Assign Contributor role on the AKS Cluster"
+  # az role assignment create --assignee $CLIENT_ID --role Contributor --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESTAURANTS_RESOURCE_GROUP_NAME/providers/Microsoft.ContainerService/managedClusters/$AKS_CLUSTER_NAME
+
+  # # Assign Azure Kubernetes Service Cluster User Role
+  # echo "Assign Azure Kubernetes Service Cluster User Role"
+  # az role assignment create --assignee $CLIENT_ID --role "Azure Kubernetes Service Cluster User Role" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESTAURANTS_RESOURCE_GROUP_NAME/providers/Microsoft.ContainerService/managedClusters/$AKS_CLUSTER_NAME
 
   # Check if the restaurants-app service exists
   if kubectl get svc restaurants-app -n default > /dev/null 2>&1; then
