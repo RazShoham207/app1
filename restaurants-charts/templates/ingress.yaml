@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: restaurants-app-ingress
@@ -12,7 +12,5 @@ spec:
       - path: /
         pathType: Prefix
         backend:
-          service:
-            name: restaurants-app
-            port:
-              number: 80
+          serviceName: restaurants-app
+          servicePort: 80
