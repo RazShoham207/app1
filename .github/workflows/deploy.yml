@@ -49,7 +49,6 @@ jobs:
           curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x ./kubectl
           mv ./kubectl /usr/local/bin/kubectl
-          # kubectl apply -f k8s/deployment.yml
           CONTEXT_NAME=$(kubectl config get-contexts -o name | grep restaurants-aks)
           kubectl config use-context $CONTEXT_NAME
 
@@ -57,10 +56,12 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-      # run: az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
 
     - name: Get AKS credentials
       run: az aks get-credentials --resource-group restaurants-rg --name restaurants-aks
+
+    - name: Delete existing Helm release (if exists)
+      run: helm delete restaurants-app --namespace default || true
 
     - name: Deploy Helm chart
       run: helm upgrade --install restaurants-app ./restaurants-charts --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --set imagePullSecrets[0].name=acr-secret
