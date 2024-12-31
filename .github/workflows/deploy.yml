@@ -81,5 +81,12 @@ jobs:
           echo "### Installing new release"
           helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         fi
+        
+        echo "helm init"
+        helm init
+        echo "helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx"
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        echo "### helm repo update"
+        helm repo update
         echo "Installing ingress-nginx"
         helm install restaurants-nginx-ingress oci://ghcr.io/nginxinc/charts/nginx-ingress --version 2.0.0
