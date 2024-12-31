@@ -17,8 +17,8 @@ RUN pip install --upgrade Flask Werkzeug
 # Verify installed versions
 RUN pip show Flask Werkzeug
 
-# Make port 443 available to the world outside this container
-EXPOSE 443
+# Make port 80 available to the world outside this container
+EXPOSE 80
 
 # Run app.py when the container launches
-CMD ["gunicorn", "--certfile=tls.crt", "--keyfile=tls.key", "-b", "0.0.0.0:443", "app:app"]
+CMD ["gunicorn", "--certfile=tls.crt", "--keyfile=tls.key", "-b", "0.0.0.0:80", "app:app"]
