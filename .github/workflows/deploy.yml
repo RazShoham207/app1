@@ -72,6 +72,7 @@ jobs:
 
     - name: Initialize Helm Repositories
       run: |
+        helm repo init
         helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
         helm repo update
 
