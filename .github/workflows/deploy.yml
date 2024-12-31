@@ -40,28 +40,44 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Set up Azure CLI and kubectl
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v1
+      with:
+        version: 'latest'
+
+    - name: Set up Azure CLI
       uses: azure/CLI@v1
       with:
-        azcliversion: latest
+        azcliversion: '2.30.0'
         inlineScript: |
-          az aks get-credentials --resource-group restaurants-rg --name restaurants-aks
-          curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x ./kubectl
-          mv ./kubectl /usr/local/bin/kubectl
-          CONTEXT_NAME=$(kubectl config get-contexts -o name | grep restaurants-aks)
-          kubectl config use-context $CONTEXT_NAME
-
-    - name: Login to Azure
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+          echo "Azure CLI setup complete"
 
     - name: Get AKS credentials
-      run: az aks get-credentials --resource-group restaurants-rg --name restaurants-aks
+      run: |
+        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
 
-    - name: Delete existing Helm release (if exists)
-      run: helm delete restaurants-app --namespace default || true
+    - name: Verify Kubernetes context
+      run: |
+        kubectl config view
+        kubectl config current-context || echo "No current context set"
+        kubectl get nodes || echo "Unable to get nodes"
 
-    - name: Deploy Helm chart
-      run: helm upgrade --install restaurants-app ./restaurants-charts --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --set imagePullSecrets[0].name=acr-secret
+    - name: Set up Helm
+      uses: azure/setup-helm@v1
+
+    - name: Clean up existing ServiceAccount
+      run: |
+        kubectl delete serviceaccount restaurants-app --ignore-not-found
+
+    - name: Deploy to AKS using Helm
+      run: |
+        RELEASE_NAME="restaurants-app"
+        CHART_PATH="./restaurants-charts"
+
+        if helm ls --namespace default | grep -q $RELEASE_NAME; then
+          echo "### Upgrading existing release"
+          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+        else
+          echo "### Installing new release"
+          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+        fi
