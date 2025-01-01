@@ -35,54 +35,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Azure Login
+    - name: Set up Helm
+      uses: azure/setup-helm@v1
+
+    - name: Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v1
-      with:
-        version: 'latest'
-
-    - name: Set up Azure CLI
-      uses: azure/CLI@v1
-      with:
-        azcliversion: '2.30.0'
-        inlineScript: |
-          echo "Azure CLI setup complete"
-
-    - name: Get AKS credentials
+    - name: Deploy to AKS
       run: |
-        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
-
-    - name: Verify Kubernetes context
-      run: |
-        kubectl config view
-        kubectl config current-context || echo "No current context set"
-        kubectl get nodes || echo "Unable to get nodes"
-
-    - name: Set up Helm
-      uses: azure/setup-helm@v1
-
-    - name: Clean up existing ServiceAccount
-      run: |
-        kubectl delete serviceaccount restaurants-app --ignore-not-found
-
-    - name: Deploy to AKS using Helm
-      run: |
-        RELEASE_NAME="restaurants-app"
-        CHART_PATH="./restaurants-charts"
-
-        if helm ls --namespace default | grep -q $RELEASE_NAME; then
-          echo "### Upgrading existing release"
-          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
-        else
-          echo "### Installing new release"
-          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
-        fi
-
-    - name: Restart Deployment
-      run: |
-        kubectl patch deployment restaurants-app -n default -p \
-          "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}}}}}"
+        helm upgrade --install restaurants-app ./helm-chart --namespace default --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
