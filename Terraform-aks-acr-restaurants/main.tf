@@ -1,17 +1,17 @@
 provider "azurerm" {
   features {}
 
-  subscription_id = "80fab2d0-ef24-4ff6-a7ed-02a816eee488"
-  client_id       = "8b1fe80d-d185-45dc-b711-6e1c6ad0b243"
-  client_secret   = "<restaurants-sp-secret-value>"
-  tenant_id       = "339e2a15-710e-4162-ab7e-8d1199b663b9"
+  subscription_id = var.subscription_id
+  client_id       = var.client_id
+  client_secret   = var.client_secret
+  tenant_id       = var.tenant_id
 }
 
 terraform {
   backend "azurerm" {
-    resource_group_name  = "DevOps-rg"
-    storage_account_name = "restaurantstfstatesa"
-    container_name       = "tfstate"
+    resource_group_name  = "DevOps-rg"  # Use hardcoded value
+    storage_account_name = "restaurantstfstatesa"  # Use hardcoded value
+    container_name       = "tfstate"  # Use hardcoded value
     key                  = "terraform.tfstate"
   }
 }
@@ -19,13 +19,13 @@ terraform {
 resource "azurerm_container_registry" "acr" {
   name                = var.acr_name
   resource_group_name = var.devops_rg_name
-  location            = var.resource_group_location
+  location            = var.restaurants_rg_location
   sku                 = var.acr_sku
   admin_enabled       = true
 }
 
 data "azurerm_storage_account" "tfstate" {
-  name                = "restaurantstfstatesa"
+  name                = var.storage_account_name
   resource_group_name = var.devops_rg_name
 }
 
