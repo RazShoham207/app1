@@ -1,51 +1,47 @@
-variable "resource_group_location" {
-  type        = string
-  default     = "eastus"
-  description = "Location of the resource group."
+variable "subscription_id" {
+  type = string
 }
 
-variable "node_count" {
-  type        = number
-  description = "The initial quantity of nodes for the node pool."
-  default     = 1
+variable "client_id" {
+  type = string
 }
 
-variable "msi_id" {
-  type        = string
-  description = "The Managed Service Identity ID. Set this value if you're running this example using Managed Identity as the authentication method."
-  default     = null
+variable "client_secret" {
+  type = string
 }
 
-variable "username" {
-  type        = string
-  description = "The admin username for the new cluster."
-  default     = "azureadmin"
-}
-
-variable "acr_sku" {
-  type    = string
-  default = "Basic"
-}
-
-variable "acr_name" {
-  type    = string
-  default = "restaurantsacr"
-}
-
-variable "restaurants_rg_name" {
-  type        = string
-  description = "The name of the resource group for the AKS cluster."
-  default     = "restaurants-rg"
+variable "tenant_id" {
+  type = string
 }
 
 variable "devops_rg_name" {
-  type        = string
-  description = "The name of the resource group for DevOps resources."
-  default     = "DevOps-rg"
+  type = string
+}
+
+variable "storage_account_name" {
+  type = string
+}
+
+variable "container_name" {
+  type = string
+}
+
+variable "restaurants_rg_name" {
+  type = string
 }
 
 variable "restaurants_rg_location" {
-  description = "The location of the Restaurants resource group"
-  type        = string
-  default     = "eastus"
+  type = string
+}
+
+variable "acr_name" {
+  type = string
+}
+
+variable "acr_sku" {
+  type = string
+}
+
+variable "node_count" {
+  type = number
 }
