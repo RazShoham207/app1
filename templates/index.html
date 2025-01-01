@@ -18,7 +18,6 @@
             padding: 10px;
             border-radius: 50%;
             text-align: center;
-            font-size: 2em; /* Adjust the size as needed */
         }
         pre {
             background-color: #f4f4f4;
@@ -30,55 +29,51 @@
         }
         .flip-box {
             background-color: transparent;
-            width: 600px;
-            height: 400px;
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            aspect-ratio: 3 / 2;
             border: 1px solid #f1f1f1;
-            perspective: 1000px;
-            margin-left: auto;
-            margin-right: auto;
+            margin: auto;
         }
         .flip-box-inner {
             position: relative;
             width: 100%;
             height: 100%;
             text-align: center;
-            transition: transform 0.8s;
+            transition: transform 0.6s;
             transform-style: preserve-3d;
-        }
-        .flip-box:hover .flip-box-inner {
-            transform: rotateY(180deg);
         }
         .flip-box-front, .flip-box-back {
             position: absolute;
             width: 100%;
             height: 100%;
-            -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
         }
         .flip-box-front {
             background-color: #bbb;
             color: black;
-            position: relative;
+        }
+        .flip-box-back {
+            background-color: #2980b9;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .flip-box:hover .flip-box-inner {
+            transform: rotateY(180deg);
+        }
+        .img-fluid {
+            max-width: 100%;
+            height: auto;
         }
         .overlay-text {
             position: absolute;
             bottom: 10px;
-            right: 10px;
+            left: 10px;
             background-color: rgba(0, 0, 0, 0.5);
             color: white;
-            padding: 10px;
+            padding: 5px;
             border-radius: 5px;
-        }
-        .flip-box-back {
-            background-color: #555;
-            color: white;
-            transform: rotateY(180deg);
-        }
-        .brace {
-            color: #f37a16;
-        }
-        .bracket {
-            color: #29991a;
         }
     </style>
 </head>
@@ -87,56 +82,17 @@
         <h1>Restaurant Recommendations</h1>
         <div id="recommendations"></div>
     </div>
-    <!-- <h1>Restaurant Recommendation</h1> -->
     <pre id="json-output">{{ data | safe }}</pre>
     <div class="flip-box">
         <div class="flip-box-inner">
             <div class="flip-box-front">
-                <!-- <img src="static/my_place.jpg" alt="חייקל'ה" style="width:600px;height:400px"> -->
                 <img src="static/my_place.jpg" class="img-fluid" alt="Responsive image">
                 <div class="overlay-text">העבר את העכבר על התמונה ומחוצה לה</div>
             </div>
             <div class="flip-box-back">
                 <h2>חייקל'ה</h2>
-                <p>הפאב הקהילתי שפתחתי בקיבוץ</p>
-                <p>מועדון קטן ונעים בו מגישים משקאות טובים ופינוקים כמו פיצות, נקנקיות, אדממה ופופקורן</p>
-                <p>כל שבוע יש פעילויות שונות כמו ערבי ג'אם, צפייה בספורט וסרטים, מסיבות ריקודים ועוד</p>
-                <p>להלן רשימת המסעדות המלאה:</p>
-                <ul>
-                    <li>Restaurant("Pizza Hut", "Italian", "123 Main St", "09:00", "23:00", False, True)</li>
-                    <li>Restaurant("Veggie Delight", "Vegetarian", "456 Elm St", "10:00", "22:00", True, True)</li>
-                    <li>Restaurant("Sushi World", "Japanese", "789 Oak St", "11:00", "21:00", False, False)</li>
-                    <li>Restaurant("Late Night Diner", "American", "101 Night St", "10:00", "02:00", False, True)</li>
-                    <li>Restaurant("Very Late Night Diner", "American", "222 Night St", "11:00", "03:00", False, True)</li>
-                    <li>Restaurant("Very very Late Night Diner", "American", "333 Night St", "12:00", "04:00", False, True)</li>
-                    <li>Restaurant("Very very Late Night Diner", "American", "333 Night St", "12:00", "05:00", False, True)</li>
-                    <li>Restaurant("Day time", "American", "333 Night St", "08:00", "16:00", False, True)</li>
-                    <!-- Add more restaurants as needed -->
-                </ul>
-                <p>תודה</p>
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const preElement = document.getElementById('json-output');
-            let jsonContent = preElement.textContent;
-
-            // Replace main braces and brackets with spans
-            jsonContent = jsonContent.replace(/({)/g, '<span class="brace">$1</span>');
-            jsonContent = jsonContent.replace(/(
-
-\[)/g, '<span class="bracket">$1</span>');
-            jsonContent = jsonContent.replace(/(})/g, '<span class="brace">$1</span>');
-            jsonContent = jsonContent.replace(/(\]
-
-)/g, '<span class="bracket">$1</span>');
-            preElement.innerHTML = jsonContent;
-        });
-    </script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
