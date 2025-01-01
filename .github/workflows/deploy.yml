@@ -10,6 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+    - name: Enable debug logging
+      run: |
+        echo "##[debug]Enable debug logging"
+        echo "##[debug]$(env)"
+
     - name: Checkout code
       uses: actions/checkout@v2
 
@@ -22,6 +28,10 @@ jobs:
         login-server: restaurantsacr.azurecr.io
         username: ${{ secrets.AZURE_ACR_USERNAME }}
         password: ${{ secrets.AZURE_ACR_PASSWORD }}
+
+    - name: Verify Azure Container Registry Login
+      run: |
+        az acr login --name restaurantsacr
 
     - name: Build and push Docker image
       run: |
