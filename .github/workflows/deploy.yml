@@ -29,17 +29,17 @@ jobs:
     - name: Login to Azure Container Registry
       uses: azure/docker-login@v1
       with:
-        login-server: restaurantsacr2.azurecr.io
+        login-server: restaurantsacr.azurecr.io
         username: ${{ secrets.AZURE_ACR_USERNAME }}
         password: ${{ secrets.AZURE_ACR_PASSWORD }}
 
     - name: Verify Azure Container Registry Login
       run: |
-        az acr login --name restaurantsacr2
+        az acr login --name restaurantsacr
 
     - name: Build and push Docker image
       run: |
-        docker buildx build --push --tag restaurantsacr2.azurecr.io/restaurants-app2:latest .
+        docker buildx build --push --tag restaurantsacr.azurecr.io/restaurants-app:latest .
 
   deploy:
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
 
     - name: Get AKS credentials
       run: |
-        az aks get-credentials --resource-group Restaurants-rg2 --name restaurants-aks2
+        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
 
     - name: Verify Kubernetes context
       run: |
@@ -81,22 +81,22 @@ jobs:
 
     - name: Clean up existing ServiceAccount
       run: |
-        kubectl delete serviceaccount restaurants-app2 --ignore-not-found
+        kubectl delete serviceaccount restaurants-app --ignore-not-found
 
     - name: Deploy to AKS using Helm
       run: |
-        RELEASE_NAME="restaurants-app2"
+        RELEASE_NAME="restaurants-app"
         CHART_PATH="./restaurants-charts"
 
         if helm ls --namespace default | grep -q $RELEASE_NAME; then
           echo "### Upgrading existing release"
-          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr2.azurecr.io/restaurants-app2 --set image.tag=latest
+          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         else
           echo "### Installing new release"
-          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr2.azurecr.io/restaurants-app2 --set image.tag=latest
+          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
         fi
 
     - name: Restart Deployment
       run: |
-        kubectl patch deployment restaurants-app2 -n default -p \
+        kubectl patch deployment restaurants-app -n default -p \
           "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}}}}}"
