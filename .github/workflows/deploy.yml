@@ -19,7 +19,7 @@ jobs:
     - name: Login to Azure Container Registry
       uses: azure/docker-login@v1
       with:
-        login-server: restaurantsacr.azurecr.io
+        login-server: restaurantsacr2.azurecr.io
         username: ${{ secrets.AZURE_ACR_USERNAME }}
         password: ${{ secrets.AZURE_ACR_PASSWORD }}
 
@@ -54,7 +54,7 @@ jobs:
 
     - name: Get AKS credentials
       run: |
-        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks
+        az aks get-credentials --resource-group Restaurants-rg --name restaurants-aks2
 
     - name: Verify Kubernetes context
       run: |
@@ -71,7 +71,7 @@ jobs:
 
     - name: Deploy to AKS using Helm
       run: |
-        RELEASE_NAME="restaurants-app"
+        RELEASE_NAME="restaurants-app2"
         CHART_PATH="./restaurants-charts"
 
         if helm ls --namespace default | grep -q $RELEASE_NAME; then
