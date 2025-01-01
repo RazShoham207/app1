@@ -1,102 +1,118 @@
-name: Deploy to AKS using Helm
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Enable debug logging
-      run: |
-        echo "##[debug]Enable debug logging"
-        echo "##[debug]$(env)"
-
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Login to Azure Container Registry
-      uses: azure/docker-login@v1
-      with:
-        login-server: restaurantsacr2.azurecr.io
-        username: ${{ secrets.AZURE_ACR_USERNAME }}
-        password: ${{ secrets.AZURE_ACR_PASSWORD }}
-
-    - name: Verify Azure Container Registry Login
-      run: |
-        az acr login --name restaurantsacr2
-
-    - name: Build and push Docker image
-      run: |
-        docker buildx build --push --tag restaurantsacr2.azurecr.io/restaurants-app2:latest .
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v1
-      with:
-        version: 'latest'
-
-    - name: Set up Azure CLI
-      uses: azure/CLI@v1
-      with:
-        azcliversion: '2.30.0'
-        inlineScript: |
-          echo "Azure CLI setup complete"
-
-    - name: Get AKS credentials
-      run: |
-        az aks get-credentials --resource-group Restaurants-rg2 --name restaurants-aks2
-
-    - name: Verify Kubernetes context
-      run: |
-        kubectl config view
-        kubectl config current-context || echo "No current context set"
-        kubectl get nodes || echo "Unable to get nodes"
-
-    - name: Set up Helm
-      uses: azure/setup-helm@v1
-
-    - name: Clean up existing ServiceAccount
-      run: |
-        kubectl delete serviceaccount restaurants-app2 --ignore-not-found
-
-    - name: Deploy to AKS using Helm
-      run: |
-        RELEASE_NAME="restaurants-app2"
-        CHART_PATH="./restaurants-charts"
-
-        if helm ls --namespace default | grep -q $RELEASE_NAME; then
-          echo "### Upgrading existing release"
-          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr2.azurecr.io/restaurants-app2 --set image.tag=latest
-        else
-          echo "### Installing new release"
-          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr2.azurecr.io/restaurants-app2 --set image.tag=latest
-        fi
-
-    - name: Restart Deployment
-      run: |
-        kubectl patch deployment restaurants-app2 -n default -p \
-          "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}}}}}"
+<!-- filepath: /f:/רז/restaurants/app1/templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Recommendations</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f8ff; /* Light blue background */
+        }
+        h1 {
+            color: #2c3e50; /* Dark blue color */
+            background-color: #32bcce; /* Light cyan background */
+            padding: 10px;
+            border-radius: 50%;
+            text-align: center;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            color: #166fc9;
+            border: 3px solid #cccc;
+            white-space: pre-wrap; /* Ensure the JSON wraps properly */
+        }
+        .flip-box {
+            background-color: transparent;
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            aspect-ratio: 3 / 2;
+            border: 1px solid #f1f1f1;
+            margin: auto;
+        }
+        .flip-box-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .flip-box-front, .flip-box-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+        }
+        .flip-box-front {
+            background-color: #bbb;
+            color: black;
+        }
+        .flip-box-back {
+            background-color: #2980b9;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .flip-box:hover .flip-box-inner {
+            transform: rotateY(180deg);
+        }
+        .img-fluid {
+            max-width: 100%;
+            height: auto;
+        }
+        .overlay-text {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        /* Add the following CSS rule */
+        .restaurant-info {
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Restaurant Recommendations</h1>
+        <div id="recommendations"></div>
+    </div>
+    <pre id="json-output">{{ data | safe }}</pre>
+    <div class="flip-box">
+        <div class="flip-box-inner">
+            <div class="flip-box-front">
+                <img src="static/my_place.jpg" class="img-fluid" alt="Responsive image">
+                <div class="overlay-text">העבר את העכבר על התמונה ומחוצה לה</div>
+            </div>
+            <div class="flip-box-back">
+                <h2>חייקל'ה</h2>
+                <p>הפאב הקהילתי שפתחתי בקיבוץ</p>
+                <p>מועדון קטן ונעים בו מגישים משקאות טובים ופינוקים כמו פיצות, נקנקיות, אדממה ופופקורן</p>
+                <p>כל שבוע יש פעילויות שונות כמו ערבי ג'אם, צפייה בספורט וסרטים, מסיבות ריקודים ועוד</p>
+                <p>להלן רשימת המסעדות המלאה:</p>
+                <ul>
+                    <li>("Pizza Hut", "Italian", "123 Main St", "09:00", "23:00", False, True)</li>
+                    <li>("Veggie Delight", "Vegetarian", "456 Elm St", "10:00", "22:00", True, True)</li>
+                    <li>("Sushi World", "Japanese", "789 Oak St", "11:00", "21:00", False, False)</li>
+                    <li>("Late Night Diner", "American", "101 Night St", "10:00", "02:00", False, True)</li>
+                    <li>("Very Late Night Diner", "American", "222 Night St", "11:00", "03:00", False, True)</li>
+                    <li>("Very very Late Night Diner", "American", "333 Night St", "12:00", "04:00", False, True)</li>
+                    <li>("Very very Late Night Diner", "American", "333 Night St", "12:00", "05:00", False, True)</li>
+                    <li>("Day time", "American", "333 Night St", "08:00", "16:00", False, True)</li>
+                    <!-- Add more restaurants as needed -->
+                </ul>
+                <p>תודה</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
