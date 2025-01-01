@@ -64,7 +64,7 @@ initialize_terraform() {
 
 create_execution_plan() {
   echo "### Creating an execution plan - $(date '+%d-%m-%Y %H:%M:%S')"
-  terraform plan -out=tfplan -var="devops_rg_name=$DEVOPS_RESOURCE_GROUP_NAME" -var="restaurants_rg_name=$RESTAURANTS_RESOURCE_GROUP_NAME" -var="restaurants_rg_location=$RESTAURANTS_RESOURCE_GROUP_LOCATION" -var="acr_name=$ACR_NAME" -var="acr_sku=$ACR_SKU" -var="client_id=$CLIENT_ID" -var="client_secret=$CLIENT_SECRET" -var="container_name=$CONTAINER_NAME" -var="node_count=$NODE_COUNT" -var="subscription_id=$SUBSCRIPTION_ID" -var="tenant_id=$TENANT_ID" -var="storage_account_name=$STORAGE_ACCOUNT_NAME"
+  terraform plan -out=tfplan -var="devops_rg_name=$DEVOPS_RESOURCE_GROUP_NAME" -var="restaurants_rg_name=$RESTAURANTS_RESOURCE_GROUP_NAME" -var="restaurants_rg_location=$RESTAURANTS_RESOURCE_GROUP_LOCATION"
 }
 
 apply_execution_plan() {
@@ -110,16 +110,6 @@ check_and_create_storage_container() {
   fi
 }
 
-check_and_create_acr() {
-  echo "### Checking if the Azure Container Registry $ACR_NAME exists"
-  if az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
-    echo "### Azure Container Registry $ACR_NAME already exists. Skipping creation."
-  else
-    echo "### Creating Azure Container Registry $ACR_NAME"
-    az acr create --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --sku $ACR_SKU --location $RESTAURANTS_RESOURCE_GROUP_LOCATION
-  fi
-}
-
 generate_ssh_key() {
   echo "### Generating the SSH Public key"
   if [ ! -f ~/.ssh/id_rsa.pub ]; then
@@ -130,8 +120,14 @@ generate_ssh_key() {
 remove_resource_group_from_state() {
   local rg_name=$1
   echo "### Checking if $rg_name exists in the state"
-  if terraform state list | grep -q "azurerm_resource_group.$rg_name"; then
-    echo "### $rg_name exists in the state. Removing it."
+  terraform state list
+  if [ "$rg_name" == "devops_rg" ]; then
+    terraform state list "data.azurerm_resource_group.$rg_name"
+    echo "### Removing $rg_name from the state"
+    terraform state rm "data.azurerm_resource_group.$rg_name"
+  elif [ "$rg_name" == "Restaurants-rg" ]; then
+    terraform state list "azurerm_resource_group.$rg_name"
+    echo "### Removing $rg_name from the state"
     terraform state rm "azurerm_resource_group.$rg_name"
   else
     echo "### $rg_name does not exist in the state. Skipping removal."
@@ -158,19 +154,14 @@ main() {
   check_and_create_storage_account
   get_storage_account_key
   check_and_create_storage_container
-  check_and_create_acr
   generate_ssh_key
 
   # Initialize Terraform
   echo "### Initializing Terraform"
-  terraform init -reconfigure -backend-config="storage_account_name=$STORAGE_ACCOUNT_NAME" \
+  terraform init -backend-config="storage_account_name=$STORAGE_ACCOUNT_NAME" \
                  -backend-config="container_name=$CONTAINER_NAME" \
                  -backend-config="key=terraform.tfstate" \
                  -backend-config="access_key=$STORAGE_ACCOUNT_KEY"
-
-  # Import existing ACR resource into Terraform state
-  echo "### Importing existing ACR resource into Terraform state"
-  terraform import azurerm_container_registry.acr "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME/providers/Microsoft.ContainerRegistry/registries/$ACR_NAME"
 
   # Remove resource groups from Terraform state if they exist
   remove_resource_group_from_state "$DEVOPS_RESOURCE_GROUP_NAME"
@@ -240,6 +231,7 @@ main() {
   ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query "passwords[0].value" --output tsv)
 
   # Create the ACR SECRET
+  echo "### Creating the ACR SECRET"
   ACR_SECRET=$(cat << EOT
 apiVersion: v1
 kind: Secret
