@@ -134,16 +134,25 @@ remove_resource_group_from_state() {
   fi
 }
 
-apply_acr_secret_to_aks() {
-  echo "### Authenticating with the AKS cluster"
-  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME
-
-  echo "### Applying the ACR SECRET into the AKS"
-  if kubectl get secret acr-secret -n default > /dev/null 2>&1; then
-    echo "### ACR SECRET already exists. Updating the secret."
-    kubectl delete secret acr-secret -n default
+check_and_create_acr() {
+  echo "### Checking if the ACR $ACR_NAME exists"
+  if az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
+    echo "### ACR $ACR_NAME already exists. Skipping creation."
+  else
+    echo "### Creating ACR $ACR_NAME"
+    az acr create --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --sku $ACR_SKU --admin-enabled true
   fi
-  kubectl create secret docker-registry acr-secret --docker-server=$ACR_NAME.azurecr.io --docker-username=$ACR_NAME --docker-password=$(az acr credential show --name $ACR_NAME --query "passwords[0].value" --output tsv) --docker-email=example@example.com
+}
+
+enable_acr_managed_identity() {
+  echo "### Enabling system-assigned managed identity for ACR"
+  az acr identity assign --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --identities [system]
+}
+
+assign_acr_pull_role() {
+  echo "### Assigning AcrPull role to AKS managed identity"
+  AKS_MANAGED_IDENTITY_CLIENT_ID=$(az aks show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --query "identityProfile.kubeletidentity.clientId" --output tsv)
+  az role assignment create --assignee-object-id $AKS_MANAGED_IDENTITY_CLIENT_ID --role AcrPull --scope $(az acr show --name $ACR_NAME --query "id" --output tsv) --assignee-principal-type ServicePrincipal
 }
 
 main() {
@@ -161,7 +170,7 @@ main() {
   terraform init -backend-config="storage_account_name=$STORAGE_ACCOUNT_NAME" \
                  -backend-config="container_name=$CONTAINER_NAME" \
                  -backend-config="key=terraform.tfstate" \
-                 -backend-config="access_key=$STORAGE_ACCOUNT_KEY"
+                 -backend-config="access_key=$STORAGE_ACCOUNT_KEY" -reconfigure
 
   # Remove resource groups from Terraform state if they exist
   remove_resource_group_from_state "$DEVOPS_RESOURCE_GROUP_NAME"
@@ -197,7 +206,9 @@ main() {
                                   -var "node_count=$NODE_COUNT"
   fi
 
-  apply_acr_secret_to_aks
+  check_and_create_acr
+  enable_acr_managed_identity
+  assign_acr_pull_role
 
   # Check if the azurek8s file exists before attempting to modify it
   if [ -f ./azurek8s ]; then
@@ -224,28 +235,6 @@ main() {
   # Check the health of the Azure Container Registry
   echo "### Checking the health of the Azure Container Registry - $(date '+%d-%m-%Y %H:%M:%S')"
   az acr check-health --name $ACR_NAME --ignore-errors --yes
-
-  # Create a Kubernetes secret for the ACR credentials
-  echo "### Creating a Kubernetes secret for the ACR credentials - $(date '+%d-%m-%Y %H:%M:%S')"
-  ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query "username" --output tsv)
-  ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query "passwords[0].value" --output tsv)
-
-  # Create the ACR SECRET
-  echo "### Creating the ACR SECRET"
-  ACR_SECRET=$(cat << EOT
-apiVersion: v1
-kind: Secret
-metadata:
-  name: acr-secret
-type: kubernetes.io/dockerconfigjson
-data:
-  .dockerconfigjson: $(echo -n '{"auths":{"'$ACR_NAME'.azurecr.io":{"username":"'$ACR_USERNAME'","password":"'$ACR_PASSWORD'","email":"raz.shoham207@gmail.com"}}}' | base64 -w 0)
-EOT
-  )
-
-  # Apply the ACR SECRET into the AKS
-  echo "### Applying the ACR SECRET into the AKS"
-  echo "$ACR_SECRET" | kubectl apply -f -
 
   # Authenticate with the AKS cluster
   echo "### Authenticating with the AKS cluster"
