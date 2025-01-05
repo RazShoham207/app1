@@ -26,3 +26,10 @@ spec:
         - containerPort: 80
       imagePullSecrets:
       {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+        volumeMounts:
+        - name: history-storage
+          mountPath: /app/history  # Directory where the application will store the request history
+      volumes:
+      - name: history-storage
+        persistentVolumeClaim:
+          claimName: azurefile-pvc
