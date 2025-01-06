@@ -309,9 +309,6 @@ main() {
   disable_public_network_access
   create_pv_and_pvc
 
-  # Apply the storage class before running Helm commands
-  kubectl apply -f $CHART_PATH/templates/storage-class.yaml
-
   # Run Helm commands to install or upgrade the release
   if helm ls --namespace default | grep -q $RELEASE_NAME; then
     echo "### Upgrading existing release"
