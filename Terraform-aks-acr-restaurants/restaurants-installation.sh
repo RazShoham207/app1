@@ -200,7 +200,7 @@ check_and_create_acr() {
       break
     else
       echo "### ACR name $ACR_NAME is already in use. Generating a new name."
-      ACR_NAME="restaurantsacr$RANDOM"
+      ACR_NAME="restaurantsacr"
     fi
   done
 }
