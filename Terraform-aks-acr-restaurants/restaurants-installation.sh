@@ -215,10 +215,12 @@ assign_acr_pull_role() {
   AKS_MANAGED_IDENTITY_CLIENT_ID=$(az aks show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --query "identityProfile.kubeletidentity.clientId" --output tsv)
   az role assignment create --assignee-object-id $AKS_MANAGED_IDENTITY_CLIENT_ID --role AcrPull --scope $(az acr show --name $ACR_NAME --query "id" --output tsv) --assignee-principal-type ServicePrincipal
 }
+
 disable_public_network_access() {
   echo "### Disabling public network access for the storage account"
   az storage account update --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --default-action Deny
 }
+
 create_pv_and_pvc() {
   echo "### Creating Storage Class, Persistent Volume, and Persistent Volume Claim"
   kubectl apply -f storage-class.yaml
@@ -237,7 +239,7 @@ main() {
   create_file_share
   check_and_create_storage_container
   generate_ssh_key
-    create_vnet_and_subnet
+  create_vnet_and_subnet
 
   # Create Private Endpoints
   ACR_RESOURCE_ID=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
@@ -245,12 +247,22 @@ main() {
   create_private_endpoint $ACR_PRIVATE_ENDPOINT_NAME $ACR_RESOURCE_ID "registry"
   create_private_endpoint $STORAGE_PRIVATE_ENDPOINT_NAME $STORAGE_RESOURCE_ID "file"
 
+  # Get the private IP address of the storage account private endpoint
+  STORAGE_PRIVATE_IP=$(az network private-endpoint show --name $STORAGE_PRIVATE_ENDPOINT_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "customDnsConfigs[0].ipAddresses[0]" --output tsv)
+
   # Create Private DNS Zones and Link to VNet
   create_private_dns_zone "privatelink.azurecr.io"
   create_private_dns_zone "privatelink.file.core.windows.net"
   VNET_ID=$(az network vnet show --name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "id" --output tsv)
   link_private_dns_zone "privatelink.azurecr.io" $VNET_ID
   link_private_dns_zone "privatelink.file.core.windows.net" $VNET_ID
+
+  # Create A record for the storage account in the private DNS zone
+  create_private_dns_zone_record "privatelink.file.core.windows.net" $STORAGE_ACCOUNT_NAME $STORAGE_PRIVATE_IP
+
+  # Set the FQDN of the storage account
+  STORAGE_ACCOUNT_FQDN="${STORAGE_ACCOUNT_NAME}.privatelink.file.core.windows.net"
+  export STORAGE_ACCOUNT_FQDN
 
   # Initialize Terraform
   echo "### Initializing Terraform"
