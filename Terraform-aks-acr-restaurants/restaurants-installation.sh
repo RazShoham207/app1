@@ -219,9 +219,9 @@ disable_public_network_access() {
 
 create_pv_and_pvc() {
   echo "### Creating Storage Class, Persistent Volume, and Persistent Volume Claim"
-  kubectl apply -f storage-class.yaml
-  kubectl apply -f persistent-volume.yaml
-  kubectl apply -f persistent-volume-claim.yaml
+  kubectl apply -f $CHART_PATH/templates/storage-class.yaml
+  kubectl apply -f $CHART_PATH/templates/persistent-volume.yaml
+  kubectl apply -f $CHART_PATH/templates/persistent-volume-claim.yaml
 }
 
 main() {
@@ -308,6 +308,18 @@ main() {
   # Disable public network access for the storage account
   disable_public_network_access
   create_pv_and_pvc
+
+  # Apply the storage class before running Helm commands
+  kubectl apply -f $CHART_PATH/templates/storage-class.yaml
+
+  # Run Helm commands to install or upgrade the release
+  if helm ls --namespace default | grep -q $RELEASE_NAME; then
+    echo "### Upgrading existing release"
+    helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+  else
+    echo "### Installing new release"
+    helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+  fi
 
   # Check if the azurek8s file exists before attempting to modify it
   if [ -f ./azurek8s ]; then
