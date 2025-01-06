@@ -193,16 +193,12 @@ remove_resource_group_from_state() {
 
 check_and_create_acr() {
   echo "### Checking if the ACR $ACR_NAME exists"
-  while true; do
-    if az acr check-name --name $ACR_NAME --query "nameAvailable" --output tsv | grep -q "true"; then
-      echo "### Creating ACR $ACR_NAME"
-      az acr create --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --sku $ACR_SKU --admin-enabled true
-      break
-    else
-      echo "### ACR name $ACR_NAME is already in use. Generating a new name."
-      ACR_NAME="restaurantsacr"
-    fi
-  done
+  if az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
+    echo "### ACR $ACR_NAME already exists. Using the existing ACR."
+  else
+    echo "### Creating ACR $ACR_NAME"
+    az acr create --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --sku $ACR_SKU --admin-enabled true
+  fi
 }
 
 enable_acr_managed_identity() {
