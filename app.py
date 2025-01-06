@@ -40,6 +40,9 @@ restaurants = [
     # Add more restaurants as needed
 ]
 
+# Directory to save request history
+HISTORY_DIR = "/app/history"
+
 @app.route('/recommend', methods=['GET'])
 def recommend_restaurant():
     style = request.args.get('style')
@@ -65,9 +68,20 @@ def recommend_restaurant():
     
     print(f"Recommendations: {recommendations}")  # Debugging statement
 
+    # Save request history
+    save_request_history(style, vegetarian, recommendations)
+
     if recommendations:
         return render_template('index.html', data=json.dumps({"restaurantRecommendations": recommendations}, indent=4))
     return jsonify({"message": "No matching restaurant found"}), 404
+
+def save_request_history(style, vegetarian, recommendations):
+    if not os.path.exists(HISTORY_DIR):
+        os.makedirs(HISTORY_DIR)
+    
+    history_file = os.path.join(HISTORY_DIR, "request_history.txt")
+    with open(history_file, "a") as f:
+        f.write(f"Time: {datetime.now()}, Style: {style}, Vegetarian: {vegetarian}, Recommendations: {recommendations}\n")
 
 @app.route('/favicon.ico')
 def favicon():
