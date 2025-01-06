@@ -15,8 +15,15 @@ CLIENT_SECRET="9wB8Q~S2mlaN7.AI2ZH0tIcenSQ5uyLN-TNBzasz"
 TENANT_ID="339e2a15-710e-4162-ab7e-8d1199b663b9"
 AKS_CLUSTER_NAME="restaurants-aks"
 ACR_NAME="restaurantsacr"
-ACR_SKU="Standard"
+ACR_SKU="Premium"
 NODE_COUNT=1
+RELEASE_NAME="restaurants-app"
+CHART_PATH="./restaurants-charts"
+FILE_SHARE_NAME="aksshare"
+VNET_NAME="restaurants-vnet"
+SUBNET_NAME="restaurants-subnet"
+ACR_PRIVATE_ENDPOINT_NAME="acr-private-endpoint"
+STORAGE_PRIVATE_ENDPOINT_NAME="storage-private-endpoint"
 
 # Flag to determine if only plan should be run
 RUN_PLAN_ONLY=false
@@ -49,6 +56,56 @@ get_storage_account_key() {
   echo "### Getting storage account key"
   STORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group $DEVOPS_RESOURCE_GROUP_NAME --account-name $STORAGE_ACCOUNT_NAME --query '[0].value' --output tsv)
   export ARM_ACCESS_KEY=$STORAGE_ACCOUNT_KEY
+}
+
+create_k8s_secret() {
+  echo "### Creating Kubernetes secret for Azure Storage Account"
+  kubectl create secret generic azure-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY --namespace default
+}
+
+create_file_share() {
+  echo "### Creating Azure File share"
+  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
+}
+
+create_vnet_and_subnet() {
+  echo "### Creating Virtual Network and Subnet"
+  az network vnet create --name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --location $RESTAURANTS_RESOURCE_GROUP_LOCATION --address-prefix 10.0.0.0/16
+  az network vnet subnet create --name $SUBNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --vnet-name $VNET_NAME --address-prefix 10.0.1.0/24
+}
+
+create_private_endpoint() {
+  local endpoint_name=$1
+  local resource_id=$2
+  local group_id=$3
+
+  echo "### Creating Private Endpoint: $endpoint_name"
+  az network private-endpoint create --name $endpoint_name --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --vnet-name $VNET_NAME --subnet $SUBNET_NAME --private-connection-resource-id $resource_id --group-id $group_id --connection-name "${endpoint_name}-connection"
+}
+
+create_private_dns_zone() {
+  local zone_name=$1
+
+  echo "### Creating Private DNS Zone: $zone_name"
+  az network private-dns zone create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $zone_name
+}
+
+link_private_dns_zone() {
+  local zone_name=$1
+  local vnet_id=$2
+
+  echo "### Linking Private DNS Zone: $zone_name to VNet: $vnet_id"
+  az network private-dns link vnet create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name "${zone_name}-link" --virtual-network $vnet_id --registration-enabled false
+}
+
+create_private_dns_zone_record() {
+  local zone_name=$1
+  local record_name=$2
+  local ip_address=$3
+
+  echo "### Creating Private DNS Zone Record: $record_name in Zone: $zone_name"
+  az network private-dns record-set a create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $record_name
+  az network private-dns record-set a add-record --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --record-set-name $record_name --ipv4-address $ip_address
 }
 
 # Set environment variables for Terraform
@@ -136,12 +193,16 @@ remove_resource_group_from_state() {
 
 check_and_create_acr() {
   echo "### Checking if the ACR $ACR_NAME exists"
-  if az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
-    echo "### ACR $ACR_NAME already exists. Skipping creation."
-  else
-    echo "### Creating ACR $ACR_NAME"
-    az acr create --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --sku $ACR_SKU --admin-enabled true
-  fi
+  while true; do
+    if az acr check-name --name $ACR_NAME --query "nameAvailable" --output tsv | grep -q "true"; then
+      echo "### Creating ACR $ACR_NAME"
+      az acr create --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --sku $ACR_SKU --admin-enabled true
+      break
+    else
+      echo "### ACR name $ACR_NAME is already in use. Generating a new name."
+      ACR_NAME="restaurantsacr$RANDOM"
+    fi
+  done
 }
 
 enable_acr_managed_identity() {
@@ -154,6 +215,16 @@ assign_acr_pull_role() {
   AKS_MANAGED_IDENTITY_CLIENT_ID=$(az aks show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --query "identityProfile.kubeletidentity.clientId" --output tsv)
   az role assignment create --assignee-object-id $AKS_MANAGED_IDENTITY_CLIENT_ID --role AcrPull --scope $(az acr show --name $ACR_NAME --query "id" --output tsv) --assignee-principal-type ServicePrincipal
 }
+disable_public_network_access() {
+  echo "### Disabling public network access for the storage account"
+  az storage account update --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --default-action Deny
+}
+create_pv_and_pvc() {
+  echo "### Creating Storage Class, Persistent Volume, and Persistent Volume Claim"
+  kubectl apply -f storage-class.yaml
+  kubectl apply -f persistent-volume.yaml
+  kubectl apply -f persistent-volume-claim.yaml
+}
 
 main() {
   authenticate_azure
@@ -162,8 +233,24 @@ main() {
   check_and_create_resource_group $RESTAURANTS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
   check_and_create_storage_account
   get_storage_account_key
+  create_k8s_secret
+  create_file_share
   check_and_create_storage_container
   generate_ssh_key
+    create_vnet_and_subnet
+
+  # Create Private Endpoints
+  ACR_RESOURCE_ID=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
+  STORAGE_RESOURCE_ID=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
+  create_private_endpoint $ACR_PRIVATE_ENDPOINT_NAME $ACR_RESOURCE_ID "registry"
+  create_private_endpoint $STORAGE_PRIVATE_ENDPOINT_NAME $STORAGE_RESOURCE_ID "file"
+
+  # Create Private DNS Zones and Link to VNet
+  create_private_dns_zone "privatelink.azurecr.io"
+  create_private_dns_zone "privatelink.file.core.windows.net"
+  VNET_ID=$(az network vnet show --name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "id" --output tsv)
+  link_private_dns_zone "privatelink.azurecr.io" $VNET_ID
+  link_private_dns_zone "privatelink.file.core.windows.net" $VNET_ID
 
   # Initialize Terraform
   echo "### Initializing Terraform"
@@ -209,6 +296,10 @@ main() {
   check_and_create_acr
   enable_acr_managed_identity
   assign_acr_pull_role
+
+  # Disable public network access for the storage account
+  disable_public_network_access
+  create_pv_and_pvc
 
   # Check if the azurek8s file exists before attempting to modify it
   if [ -f ./azurek8s ]; then
