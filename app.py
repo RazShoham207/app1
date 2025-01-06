@@ -6,6 +6,10 @@ import json
 import os
 
 app = Flask(__name__)
+app.config['STORAGE_ACCOUNT_FQDN'] = os.getenv('STORAGE_ACCOUNT_FQDN', 'default_fqdn')
+
+# The restaurantstfstatesa.file.core.windows.net FQDN
+storage_account_fqdn = app.config['STORAGE_ACCOUNT_FQDN']
 
 class Restaurant:
     def __init__(self, name, style, address, open_hour, close_hour, vegetarian, deliveries):
