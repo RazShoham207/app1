@@ -77,7 +77,7 @@ def recommend_restaurant():
 
 def save_request_history(style, vegetarian, recommendations):
     if not os.path.exists(HISTORY_DIR):
-        os.makedirs(HISTORY_DIR)
+        os.makedirs(HISTORY_DIR, exist_ok=True)
     
     history_file = os.path.join(HISTORY_DIR, "request_history.txt")
     with open(history_file, "a") as f:
