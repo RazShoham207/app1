@@ -24,6 +24,8 @@ VNET_NAME="restaurants-vnet"
 SUBNET_NAME="restaurants-subnet"
 ACR_PRIVATE_ENDPOINT_NAME="acr-private-endpoint"
 STORAGE_PRIVATE_ENDPOINT_NAME="storage-private-endpoint"
+VNET_ADDRESS_PREFIX="10.0.0.0/16"
+SUBNET_ADDRESS_PREFIX="10.0.0.0/24"
 
 # Flag to determine if only plan should be run
 RUN_PLAN_ONLY=false
@@ -71,6 +73,11 @@ get_storage_account_key() {
   export ARM_ACCESS_KEY=$STORAGE_ACCOUNT_KEY
 }
 
+authenticate_with_aks() {
+  echo "### Authenticating with the AKS cluster"
+  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME
+}
+
 create_k8s_secret() {
   echo "### Creating Kubernetes secret for Azure Storage Account"
   if kubectl get secret azure-secret --namespace default &> /dev/null; then
@@ -87,12 +94,20 @@ create_file_share() {
 
 create_vnet_and_subnet() {
   echo "### Creating Virtual Network and Subnet"
+  echo "### Checking if the virtual network $VNET_NAME exists"
+  if az network vnet show --name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
+    echo "### Virtual network $VNET_NAME already exists. Using the existing virtual network."
+  else
+    echo "### Creating virtual network $VNET_NAME"
+    az network vnet create --name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --address-prefix $VNET_ADDRESS_PREFIX
+  fi
+
   echo "### Checking if the subnet $SUBNET_NAME exists in the virtual network $VNET_NAME"
   if az network vnet subnet show --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
     echo "### Subnet $SUBNET_NAME already exists. Using the existing subnet."
   else
     echo "### Creating subnet $SUBNET_NAME"
-    az network vnet subnet create --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --address-prefix $SUBNET_ADDRESS_PREFIX
+    az network vnet subnet create --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --address-prefixes $SUBNET_ADDRESS_PREFIX
   fi
 }
 
@@ -194,6 +209,11 @@ get_storage_account_key() {
   export ARM_ACCESS_KEY=$STORAGE_ACCOUNT_KEY
 }
 
+create_file_share() {
+  echo "### Creating Azure File share"
+  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
+}
+
 check_and_create_storage_container() {
   echo "### Checking if the storage container $CONTAINER_NAME exists"
   if az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY --query "[?name=='$CONTAINER_NAME']" | grep -q $CONTAINER_NAME; then
@@ -274,6 +294,7 @@ main() {
   check_and_create_resource_group $RESTAURANTS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
   check_and_create_storage_account
   get_storage_account_key
+  authenticate_with_aks
   create_k8s_secret
   create_file_share
   check_and_create_storage_container
@@ -283,7 +304,6 @@ main() {
   enable_acr_managed_identity
   assign_acr_pull_role
   check_acr_health
-
 
   # Create Private Endpoints
   ACR_RESOURCE_ID=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
