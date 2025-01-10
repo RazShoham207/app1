@@ -42,9 +42,22 @@ do
   esac
 done
 
+is_cloud_shell() {
+  if [ -n "$ACC_CLOUD" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 authenticate_azure() {
-  echo "### Authenticating with Azure using Service Principal"
-  az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET --tenant $TENANT_ID
+  echo "### Authenticating with Azure"
+  if is_cloud_shell; then
+    echo "### Running in Azure Cloud Shell. Skipping 'az login'."
+  else
+    echo "### Authenticating with Azure using Service Principal"
+    az login --service-principal --username $CLIENT_ID --password $CLIENT_SECRET --tenant $TENANT_ID
+  fi
 }
 
 set_subscription() {
@@ -60,7 +73,11 @@ get_storage_account_key() {
 
 create_k8s_secret() {
   echo "### Creating Kubernetes secret for Azure Storage Account"
-  kubectl create secret generic azure-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY --namespace default
+  if kubectl get secret azure-secret --namespace default &> /dev/null; then
+    echo "### Kubernetes secret 'azure-secret' already exists. Skipping creation."
+  else
+    kubectl create secret generic azure-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY --namespace default
+  fi
 }
 
 create_file_share() {
@@ -70,8 +87,13 @@ create_file_share() {
 
 create_vnet_and_subnet() {
   echo "### Creating Virtual Network and Subnet"
-  az network vnet create --name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --location $RESTAURANTS_RESOURCE_GROUP_LOCATION --address-prefix 10.0.0.0/16
-  az network vnet subnet create --name $SUBNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --vnet-name $VNET_NAME --address-prefix 10.0.1.0/24
+  echo "### Checking if the subnet $SUBNET_NAME exists in the virtual network $VNET_NAME"
+  if az network vnet subnet show --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
+    echo "### Subnet $SUBNET_NAME already exists. Using the existing subnet."
+  else
+    echo "### Creating subnet $SUBNET_NAME"
+    az network vnet subnet create --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --address-prefix $SUBNET_ADDRESS_PREFIX
+  fi
 }
 
 create_private_endpoint() {
@@ -86,16 +108,26 @@ create_private_endpoint() {
 create_private_dns_zone() {
   local zone_name=$1
 
-  echo "### Creating Private DNS Zone: $zone_name"
-  az network private-dns zone create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $zone_name
+  echo "### Checking if the Private DNS Zone $zone_name exists"
+  if az network private-dns zone show --name $zone_name --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
+    echo "### Private DNS Zone $zone_name already exists. Using the existing zone."
+  else
+    echo "### Creating Private DNS Zone: $zone_name"
+    az network private-dns zone create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $zone_name
+  fi
 }
 
 link_private_dns_zone() {
   local zone_name=$1
   local vnet_id=$2
 
-  echo "### Linking Private DNS Zone: $zone_name to VNet: $vnet_id"
-  az network private-dns link vnet create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name "${zone_name}-link" --virtual-network $vnet_id --registration-enabled false
+  echo "### Checking if the Virtual Network link for Private DNS Zone $zone_name exists"
+  if az network private-dns link vnet show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name "${zone_name}-link" &> /dev/null; then
+    echo "### Virtual Network link for Private DNS Zone $zone_name already exists. Using the existing link."
+  else
+    echo "### Linking Private DNS Zone: $zone_name to VNet: $vnet_id"
+    az network private-dns link vnet create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name "${zone_name}-link" --virtual-network $vnet_id --registration-enabled false
+  fi
 }
 
 create_private_dns_zone_record() {
@@ -103,9 +135,14 @@ create_private_dns_zone_record() {
   local record_name=$2
   local ip_address=$3
 
-  echo "### Creating Private DNS Zone Record: $record_name in Zone: $zone_name"
-  az network private-dns record-set a create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $record_name
-  az network private-dns record-set a add-record --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --record-set-name $record_name --ipv4-address $ip_address
+  echo "### Checking if the Private DNS Zone Record: $record_name exists in Zone: $zone_name"
+  if az network private-dns record-set a show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $record_name &> /dev/null; then
+    echo "### Private DNS Zone Record: $record_name already exists in Zone: $zone_name. Skipping creation."
+  else
+    echo "### Creating Private DNS Zone Record: $record_name in Zone: $zone_name"
+    az network private-dns record-set a create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $record_name
+    az network private-dns record-set a add-record --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --record-set-name $record_name --ipv4-address $ip_address
+  fi
 }
 
 # Set environment variables for Terraform
@@ -176,18 +213,17 @@ generate_ssh_key() {
 
 remove_resource_group_from_state() {
   local rg_name=$1
-  echo "### Checking if $rg_name exists in the state"
-  terraform state list
-  if [ "$rg_name" == "devops_rg" ]; then
-    terraform state list "data.azurerm_resource_group.$rg_name"
-    echo "### Removing $rg_name from the state"
-    terraform state rm "data.azurerm_resource_group.$rg_name"
-  elif [ "$rg_name" == "Restaurants-rg" ]; then
-    terraform state list "azurerm_resource_group.$rg_name"
-    echo "### Removing $rg_name from the state"
-    terraform state rm "azurerm_resource_group.$rg_name"
+  echo "### Checking if $rg_name exists in Azure"
+  if az group show --name $rg_name &> /dev/null; then
+    echo "### Resource group $rg_name exists in Azure. Checking if it exists in the state."
+    if terraform state list | grep -q "azurerm_resource_group.$rg_name"; then
+      echo "### Removing $rg_name from the state"
+      terraform state rm "azurerm_resource_group.$rg_name"
+    else
+      echo "### $rg_name does not exist in the state. Skipping removal."
+    fi
   else
-    echo "### $rg_name does not exist in the state. Skipping removal."
+    echo "### Resource group $rg_name does not exist in Azure. Skipping state removal."
   fi
 }
 
@@ -202,8 +238,10 @@ check_and_create_acr() {
 }
 
 enable_acr_managed_identity() {
-  echo "### Enabling system-assigned managed identity for ACR"
-  az acr identity assign --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --identities [system]
+  ACR_IDENTITY_STATUS=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "identity.type" --output tsv)
+  if [ "$ACR_IDENTITY_STATUS" != "SystemAssigned" ]; then
+    az acr identity assign --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --identities [system]
+  fi
 }
 
 assign_acr_pull_role() {
@@ -224,6 +262,11 @@ create_pv_and_pvc() {
   kubectl apply -f $CHART_PATH/templates/persistent-volume-claim.yaml
 }
 
+check_acr_health() {
+  echo "### Checking the health of the Azure Container Registry - $(date '+%d-%m-%Y %H:%M:%S')"
+  az acr check-health --name $ACR_NAME --yes
+}
+
 main() {
   authenticate_azure
   set_subscription
@@ -236,6 +279,11 @@ main() {
   check_and_create_storage_container
   generate_ssh_key
   create_vnet_and_subnet
+  check_and_create_acr
+  enable_acr_managed_identity
+  assign_acr_pull_role
+  check_acr_health
+
 
   # Create Private Endpoints
   ACR_RESOURCE_ID=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
@@ -301,22 +349,18 @@ main() {
                                   -var "node_count=$NODE_COUNT"
   fi
 
-  check_and_create_acr
-  enable_acr_managed_identity
-  assign_acr_pull_role
-
   # Disable public network access for the storage account
-  disable_public_network_access
-  create_pv_and_pvc
+  # disable_public_network_access
+  # create_pv_and_pvc
 
-  # Run Helm commands to install or upgrade the release
-  if helm ls --namespace default | grep -q $RELEASE_NAME; then
-    echo "### Upgrading existing release"
-    helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
-  else
-    echo "### Installing new release"
-    helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
-  fi
+  # # Run Helm commands to install or upgrade the release
+  # if helm ls --namespace default | grep -q $RELEASE_NAME; then
+  #   echo "### Upgrading existing release"
+  #   helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+  # else
+  #   echo "### Installing new release"
+  #   helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+  # fi
 
   # Check if the azurek8s file exists before attempting to modify it
   if [ -f ./azurek8s ]; then
@@ -339,10 +383,6 @@ main() {
   # Attach the Azure Container Registry to the AKS cluster
   echo "### Attaching the Azure Container Registry to the AKS cluster - $(date '+%d-%m-%Y %H:%M:%S')"
   az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr $ACR_NAME
-
-  # Check the health of the Azure Container Registry
-  echo "### Checking the health of the Azure Container Registry - $(date '+%d-%m-%Y %H:%M:%S')"
-  az acr check-health --name $ACR_NAME --ignore-errors --yes
 
   # Authenticate with the AKS cluster
   echo "### Authenticating with the AKS cluster"
@@ -376,7 +416,7 @@ main() {
     seconds=$((duration % 60))
     echo "### Total Duration: $hours hours, $minutes minutes, and $seconds seconds"
   else
-    echo "This is the first installation and there was no deploy yet. Therefore the restaurants-app service does not exist yet."
+    echo "###### This is the first installation and there was no deploy yet. Therefore the restaurants-app service does not exist yet. ######"
     echo ""
     echo "### Running Terraform - END - $(date '+%d-%m-%Y %H:%M:%S')"
     end_time=$(date +%s)
