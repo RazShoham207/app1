@@ -5,7 +5,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: azurefileapp
+  storageClassName: azurefile-app
   resources:
     requests:
       storage: 5Gi
