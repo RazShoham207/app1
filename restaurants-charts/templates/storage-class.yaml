@@ -1,7 +1,7 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: azurefileapp
+  name: azurefile-app
 provisioner: kubernetes.io/azure-file
 parameters:
   skuName: Standard_LRS
