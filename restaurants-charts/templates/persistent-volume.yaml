@@ -7,7 +7,7 @@ spec:
     storage: 5Gi
   accessModes:
     - ReadWriteOnce
-  storageClassName: azurefileapp
+  storageClassName: azurefile-app
   azureFile:
     secretName: azure-secret
     shareName: aksshare
