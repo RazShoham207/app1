@@ -9,6 +9,5 @@ spec:
     - ReadWriteOnce
   storageClassName: azurefile-app
   azureFile:
-    secretName: azure-secret
     shareName: aksshare
     readOnly: false
