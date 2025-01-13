@@ -12,7 +12,7 @@ spec:
   csi:
     driver: file.csi.azure.com
     readOnly: false
-    volumeHandle: restaurantstfstatesa#aksshare
+    volumeHandle: "restaurantstfstatesa#aksshare"
     nodeStageSecretRef:
       name: azure-secret
       namespace: default
