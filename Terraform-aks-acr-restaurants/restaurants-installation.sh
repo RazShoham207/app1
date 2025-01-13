@@ -26,6 +26,7 @@ ACR_PRIVATE_ENDPOINT_NAME="acr-private-endpoint"
 STORAGE_PRIVATE_ENDPOINT_NAME="storage-private-endpoint"
 VNET_ADDRESS_PREFIX="10.0.0.0/16"
 SUBNET_ADDRESS_PREFIX="10.0.0.0/24"
+MI_NAME="my-managed-identity"
 
 # Flag to determine if only plan should be run
 RUN_PLAN_ONLY=false
@@ -58,38 +59,24 @@ authenticate_azure() {
     echo "### Running in Azure Cloud Shell. Skipping 'az login'."
   else
     echo "### Authenticating with Azure using Service Principal"
-    az login --service-principal --username $CLIENT_ID --password $CLIENT_SECRET --tenant $TENANT_ID
+    az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET --tenant $TENANT_ID
   fi
 }
 
 set_subscription() {
-  echo "### Setting the Azure subscription"
+  echo "### Setting Azure subscription"
   az account set --subscription $SUBSCRIPTION_ID
-}
-
-get_storage_account_key() {
-  echo "### Getting storage account key"
-  STORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group $DEVOPS_RESOURCE_GROUP_NAME --account-name $STORAGE_ACCOUNT_NAME --query '[0].value' --output tsv)
-  export ARM_ACCESS_KEY=$STORAGE_ACCOUNT_KEY
 }
 
 authenticate_with_aks() {
   echo "### Authenticating with the AKS cluster"
-  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME
-}
-
-create_k8s_secret() {
-  echo "### Creating Kubernetes secret for Azure Storage Account"
-  if kubectl get secret azure-secret --namespace default &> /dev/null; then
-    echo "### Kubernetes secret 'azure-secret' already exists. Skipping creation."
-  else
-    kubectl create secret generic azure-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY --namespace default
-  fi
+  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --overwrite-existing
+  az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr $ACR_NAME
 }
 
 create_file_share() {
   echo "### Creating Azure File share"
-  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
+  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY
 }
 
 create_vnet_and_subnet() {
@@ -115,14 +102,13 @@ create_private_endpoint() {
   local endpoint_name=$1
   local resource_id=$2
   local group_id=$3
-
-  echo "### Creating Private Endpoint: $endpoint_name"
-  az network private-endpoint create --name $endpoint_name --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --vnet-name $VNET_NAME --subnet $SUBNET_NAME --private-connection-resource-id $resource_id --group-id $group_id --connection-name "${endpoint_name}-connection"
+  local connection_name=$4
+  echo "### Creating private endpoint $endpoint_name"
+  az network private-endpoint create --name $endpoint_name --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --vnet-name $VNET_NAME --subnet $SUBNET_NAME --private-connection-resource-id $resource_id --group-id $group_id --connection-name $connection_name
 }
 
 create_private_dns_zone() {
   local zone_name=$1
-
   echo "### Checking if the Private DNS Zone $zone_name exists"
   if az network private-dns zone show --name $zone_name --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
     echo "### Private DNS Zone $zone_name already exists. Using the existing zone."
@@ -135,13 +121,12 @@ create_private_dns_zone() {
 link_private_dns_zone() {
   local zone_name=$1
   local vnet_id=$2
-
-  echo "### Checking if the Virtual Network link for Private DNS Zone $zone_name exists"
-  if az network private-dns link vnet show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name "${zone_name}-link" &> /dev/null; then
-    echo "### Virtual Network link for Private DNS Zone $zone_name already exists. Using the existing link."
+  local link_name="${zone_name}-link"
+  echo "### Linking private DNS zone $zone_name to VNet"
+  if az network private-dns link vnet show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $link_name &> /dev/null; then
+    echo "### Private DNS zone link $link_name already exists. Skipping creation."
   else
-    echo "### Linking Private DNS Zone: $zone_name to VNet: $vnet_id"
-    az network private-dns link vnet create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name "${zone_name}-link" --virtual-network $vnet_id --registration-enabled false
+    az network private-dns link vnet create --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $link_name --virtual-network $vnet_id --registration-enabled false
   fi
 }
 
@@ -149,7 +134,6 @@ create_private_dns_zone_record() {
   local zone_name=$1
   local record_name=$2
   local ip_address=$3
-
   echo "### Checking if the Private DNS Zone Record: $record_name exists in Zone: $zone_name"
   if az network private-dns record-set a show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --zone-name $zone_name --name $record_name &> /dev/null; then
     echo "### Private DNS Zone Record: $record_name already exists in Zone: $zone_name. Skipping creation."
@@ -184,7 +168,7 @@ apply_execution_plan() {
 check_and_create_resource_group() {
   local rg_name=$1
   local rg_location=$2
-  echo "### Checking if the resource group $rg_name exists"
+  echo "### Checking if resource group $rg_name exists"
   if az group show --name $rg_name &> /dev/null; then
     echo "### Resource group $rg_name already exists. Skipping creation."
   else
@@ -194,12 +178,12 @@ check_and_create_resource_group() {
 }
 
 check_and_create_storage_account() {
-  echo "### Checking if the storage account $STORAGE_ACCOUNT_NAME exists"
+  echo "### Checking if storage account $STORAGE_ACCOUNT_NAME exists"
   if az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
     echo "### Storage account $STORAGE_ACCOUNT_NAME already exists. Skipping creation."
   else
     echo "### Creating storage account $STORAGE_ACCOUNT_NAME"
-    az storage account create --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --location eastus --sku Standard_LRS
+    az storage account create --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --location $RESTAURANTS_RESOURCE_GROUP_LOCATION --sku Standard_LRS
   fi
 }
 
@@ -209,14 +193,19 @@ get_storage_account_key() {
   export ARM_ACCESS_KEY=$STORAGE_ACCOUNT_KEY
 }
 
-create_file_share() {
-  echo "### Creating Azure File share"
-  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
+check_and_create_aks() {
+  echo "### Checking if AKS cluster $AKS_CLUSTER_NAME exists"
+  if az aks show --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME &> /dev/null; then
+    echo "### AKS cluster $AKS_CLUSTER_NAME already exists"
+  else
+    echo "### Creating AKS cluster $AKS_CLUSTER_NAME"
+    az aks create --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --node-count $NODE_COUNT --enable-managed-identity --generate-ssh-keys
+  fi
 }
 
 check_and_create_storage_container() {
-  echo "### Checking if the storage container $CONTAINER_NAME exists"
-  if az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY --query "[?name=='$CONTAINER_NAME']" | grep -q $CONTAINER_NAME; then
+  echo "### Checking if storage container $CONTAINER_NAME exists"
+  if az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY &> /dev/null; then
     echo "### Storage container $CONTAINER_NAME already exists. Skipping creation."
   else
     echo "### Creating storage container $CONTAINER_NAME"
@@ -225,7 +214,7 @@ check_and_create_storage_container() {
 }
 
 generate_ssh_key() {
-  echo "### Generating the SSH Public key"
+  echo "### Generating SSH key"
   if [ ! -f ~/.ssh/id_rsa.pub ]; then
     ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
   fi
@@ -248,7 +237,7 @@ remove_resource_group_from_state() {
 }
 
 check_and_create_acr() {
-  echo "### Checking if the ACR $ACR_NAME exists"
+  echo "### Checking if ACR $ACR_NAME exists"
   if az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
     echo "### ACR $ACR_NAME already exists. Using the existing ACR."
   else
@@ -257,34 +246,120 @@ check_and_create_acr() {
   fi
 }
 
-enable_acr_managed_identity() {
-  ACR_IDENTITY_STATUS=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "identity.type" --output tsv)
-  if [ "$ACR_IDENTITY_STATUS" != "SystemAssigned" ]; then
-    az acr identity assign --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --identities [system]
+create_managed_identity() {
+  echo "### Creating Managed Identity"
+  az identity create --name $MI_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME
+  MI_ID=$(az identity show --name $MI_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query 'id' -o tsv)
+  MI_CLIENT_ID=$(az identity show --name $MI_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query 'clientId' -o tsv)
+  export MI_ID=$MI_ID
+  export MI_CLIENT_ID=$MI_CLIENT_ID
+}
+
+install_azure_workload_identity() {
+  echo "### Installing Azure Workload Identity on AKS"
+  az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --enable-oidc-issuer --enable-workload-identity
+}
+
+create_azure_identity() {
+  echo "### Creating AzureIdentity and AzureIdentityBinding"
+  cat <<EOF | kubectl apply -f -
+apiVersion: workload.identity.azure.com/v1alpha1
+kind: AzureIdentity
+metadata:
+  name: $MI_NAME
+spec:
+  type: UserAssigned
+  resourceID: $MI_ID
+  clientID: $MI_CLIENT_ID
+EOF
+
+  cat <<EOF | kubectl apply -f -
+apiVersion: workload.identity.azure.com/v1alpha1
+kind: AzureIdentityBinding
+metadata:
+  name: my-azure-identity-binding
+spec:
+  azureIdentity: $MI_NAME
+  selector: my-app
+EOF
+
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-app-sa
+  namespace: default
+  annotations:
+    azure.workload.identity/client-id: $MI_CLIENT_ID
+EOF
+}
+
+# disable_public_network_access() {
+#   echo "### Disabling public network access for the storage account"
+#   az storage account update --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --default-action Deny
+# }
+
+# create_pv_and_pvc() {
+#   echo "### Creating Storage Class, Persistent Volume, and Persistent Volume Claim"
+#   kubectl apply -f $CHART_PATH/templates/storage-class.yaml
+#   kubectl apply -f $CHART_PATH/templates/persistent-volume.yaml
+#   kubectl apply -f $CHART_PATH/templates/persistent-volume-claim.yaml
+# }
+
+check_acr_health() {
+  echo "### Checking ACR health - $(date '+%d-%m-%Y %H:%M:%S')"
+  az acr check-health --name $ACR_NAME --yes
+}
+
+create_azurefile_secret() {
+  echo "### Checking if the azurefile-secret exists"
+  if kubectl get secret azurefile-secret --namespace=default &> /dev/null; then
+    echo "### Secret azurefile-secret already exists. Skipping creation."
+  else
+    echo "### Creating azurefile-secret"
+    kubectl create secret generic azurefile-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$ARM_ACCESS_KEY --namespace=default
   fi
+}
+
+# import_existing_acr() {
+#   get_storage_account_key
+#   echo "### Importing existing ACR into Terraform state"
+#   terraform import azurerm_container_registry.acr /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME/providers/Microsoft.ContainerRegistry/registries/$ACR_NAME
+# }
+
+enable_aks_managed_identity() {
+  echo "### Enabling Managed Identity for AKS cluster"
+  az aks update --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --enable-managed-identity
+  echo "Ensuring Azure CLI is Authenticated"
+  az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET --tenant $TENANT_ID
+  echo "Getting the MI Object ID"
+  AKS_MI_ID=$(az aks show --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "identityProfile.kubeletidentity.objectId" --output tsv)
+  export AKS_MI_ID=$AKS_MI_ID
 }
 
 assign_acr_pull_role() {
   echo "### Assigning AcrPull role to AKS managed identity"
-  AKS_MANAGED_IDENTITY_CLIENT_ID=$(az aks show --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --query "identityProfile.kubeletidentity.clientId" --output tsv)
-  az role assignment create --assignee-object-id $AKS_MANAGED_IDENTITY_CLIENT_ID --role AcrPull --scope $(az acr show --name $ACR_NAME --query "id" --output tsv) --assignee-principal-type ServicePrincipal
+  AKS_MI_ID=$(az aks show --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "identityProfile.kubeletidentity.objectId" --output tsv)
+  if [ -z "$AKS_MI_ID" ]; then
+    echo "### Failed to retrieve Managed Identity Object ID for AKS cluster"
+    exit 1
+  fi
+  az role assignment create --assignee-object-id $AKS_MI_ID --role AcrPull --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME/providers/Microsoft.ContainerRegistry/registries/$ACR_NAME --assignee-principal-type ServicePrincipal
 }
 
-disable_public_network_access() {
-  echo "### Disabling public network access for the storage account"
-  az storage account update --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --default-action Deny
-}
-
-create_pv_and_pvc() {
-  echo "### Creating Storage Class, Persistent Volume, and Persistent Volume Claim"
-  kubectl apply -f $CHART_PATH/templates/storage-class.yaml
-  kubectl apply -f $CHART_PATH/templates/persistent-volume.yaml
-  kubectl apply -f $CHART_PATH/templates/persistent-volume-claim.yaml
-}
-
-check_acr_health() {
-  echo "### Checking the health of the Azure Container Registry - $(date '+%d-%m-%Y %H:%M:%S')"
-  az acr check-health --name $ACR_NAME --yes
+assign_owner_role_to_sp() {
+  echo "### Assigning the Owner Role to the Service Principal"
+  
+  # Ensure Azure CLI is authenticated
+  echo "### Ensuring Azure CLI is authenticated"
+  az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET --tenant $TENANT_ID
+  
+  # Retry mechanism for role assignment
+  for i in {1..5}; do
+    az role assignment create --assignee $CLIENT_ID --role Owner --scope /subscriptions/$SUBSCRIPTION_ID && break
+    echo "### Failed to assign role. Retrying in 5 seconds..."
+    sleep 5
+  done
 }
 
 main() {
@@ -294,25 +369,24 @@ main() {
   check_and_create_resource_group $RESTAURANTS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
   check_and_create_storage_account
   get_storage_account_key
-  authenticate_with_aks
-  create_k8s_secret
   create_file_share
   check_and_create_storage_container
   generate_ssh_key
   create_vnet_and_subnet
   check_and_create_acr
-  enable_acr_managed_identity
-  assign_acr_pull_role
   check_acr_health
 
   # Create Private Endpoints
   ACR_RESOURCE_ID=$(az acr show --name $ACR_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
   STORAGE_RESOURCE_ID=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "id" --output tsv)
-  create_private_endpoint $ACR_PRIVATE_ENDPOINT_NAME $ACR_RESOURCE_ID "registry"
-  create_private_endpoint $STORAGE_PRIVATE_ENDPOINT_NAME $STORAGE_RESOURCE_ID "file"
+  create_private_endpoint $ACR_PRIVATE_ENDPOINT_NAME $ACR_RESOURCE_ID "registry" "acr-connection"
+  create_private_endpoint $STORAGE_PRIVATE_ENDPOINT_NAME $STORAGE_RESOURCE_ID "file" "storage-connection"
 
   # Get the private IP address of the storage account private endpoint
-  STORAGE_PRIVATE_IP=$(az network private-endpoint show --name $STORAGE_PRIVATE_ENDPOINT_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "customDnsConfigs[0].ipAddresses[0]" --output tsv)
+  STORAGE_PRIVATE_EP_IP=$(az network private-endpoint show --name $STORAGE_PRIVATE_ENDPOINT_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "customDnsConfigs[0].ipAddresses[0]" --output tsv)
+
+  # Get the private IP address of the ACR private endpoint
+  ACR_PRIVATE_EP_IP=$(az network private-endpoint show --name $ACR_PRIVATE_ENDPOINT_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "customDnsConfigs[0].ipAddresses[0]" --output tsv)
 
   # Create Private DNS Zones and Link to VNet
   create_private_dns_zone "privatelink.azurecr.io"
@@ -322,18 +396,28 @@ main() {
   link_private_dns_zone "privatelink.file.core.windows.net" $VNET_ID
 
   # Create A record for the storage account in the private DNS zone
-  create_private_dns_zone_record "privatelink.file.core.windows.net" $STORAGE_ACCOUNT_NAME $STORAGE_PRIVATE_IP
+  create_private_dns_zone_record "privatelink.file.core.windows.net" $STORAGE_ACCOUNT_NAME $STORAGE_PRIVATE_EP_IP
+
+  # Create A record for the ACR in the private DNS zone
+  create_private_dns_zone_record "privatelink.azurecr.io" $ACR_NAME $ACR_PRIVATE_EP_IP
 
   # Set the FQDN of the storage account
   STORAGE_ACCOUNT_FQDN="${STORAGE_ACCOUNT_NAME}.privatelink.file.core.windows.net"
-  export STORAGE_ACCOUNT_FQDN
+  export STORAGE_ACCOUNT_FQDN=$STORAGE_ACCOUNT_FQDN
+
+  # Set the FQDN of the ACR
+  ACR_FQDN="${ACR_NAME}.privatelink.azurecr.io"
+  export ACR_FQDN=$ACR_FQDN
+
+  # # Import existing ACR into Terraform state
+  # import_existing_acr
 
   # Initialize Terraform
   echo "### Initializing Terraform"
   terraform init -backend-config="storage_account_name=$STORAGE_ACCOUNT_NAME" \
                  -backend-config="container_name=$CONTAINER_NAME" \
                  -backend-config="key=terraform.tfstate" \
-                 -backend-config="access_key=$STORAGE_ACCOUNT_KEY" -reconfigure
+                 -backend-config="access_key=$ARM_ACCESS_KEY" -reconfigure
 
   # Remove resource groups from Terraform state if they exist
   remove_resource_group_from_state "$DEVOPS_RESOURCE_GROUP_NAME"
@@ -368,6 +452,10 @@ main() {
                                   -var "acr_sku=$ACR_SKU" \
                                   -var "node_count=$NODE_COUNT"
   fi
+
+  # Authenticate with the AKS cluster
+  authenticate_with_aks
+  create_azurefile_secret
 
   # Disable public network access for the storage account
   # disable_public_network_access
@@ -404,17 +492,14 @@ main() {
   echo "### Attaching the Azure Container Registry to the AKS cluster - $(date '+%d-%m-%Y %H:%M:%S')"
   az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr $ACR_NAME
 
-  # Authenticate with the AKS cluster
-  echo "### Authenticating with the AKS cluster"
-  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME
+  # Enable Managed Identity for AKS cluster
+  enable_aks_managed_identity
 
-  # Verify authentication
-  echo "### Verifying authentication"
-  kubectl get nodes
+  # Assign AcrPull role to AKS managed identity
+  assign_acr_pull_role
 
   # Assign the Owner Role to the Service Principal
-  echo "### Assigning the Owner Role to the Service Principal"
-  az role assignment create --assignee $CLIENT_ID --role Owner --scope /subscriptions/$SUBSCRIPTION_ID
+  assign_owner_role_to_sp
 
   # Check if the restaurants-app service exists
   if kubectl get svc restaurants-app -n default > /dev/null 2>&1; then
@@ -436,6 +521,7 @@ main() {
     seconds=$((duration % 60))
     echo "### Total Duration: $hours hours, $minutes minutes, and $seconds seconds"
   else
+    echo ""
     echo "###### This is the first installation and there was no deploy yet. Therefore the restaurants-app service does not exist yet. ######"
     echo ""
     echo "### Running Terraform - END - $(date '+%d-%m-%Y %H:%M:%S')"
