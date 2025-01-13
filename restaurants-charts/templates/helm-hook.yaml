@@ -15,6 +15,9 @@ spec:
         - /bin/sh
         - -c
         - |
+          if kubectl get job create-pv-pvc; then
+            kubectl delete job create-pv-pvc
+          fi
           kubectl apply -f /path/to/persistent-volume.yaml
           kubectl apply -f /path/to/persistent-volume-claim.yaml
       restartPolicy: OnFailure
