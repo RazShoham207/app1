@@ -6,6 +6,7 @@ metadata:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-delete-policy": hook-succeeded
 spec:
+  backoffLimit: 4
   template:
     spec:
       containers:
