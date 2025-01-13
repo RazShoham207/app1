@@ -4,8 +4,8 @@ metadata:
   name: azurefile-pvc
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   storageClassName: azurefile-app
   resources:
     requests:
-      storage: 5Gi
+      storage: 10Gi
