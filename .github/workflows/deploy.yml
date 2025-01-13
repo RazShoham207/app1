@@ -83,6 +83,14 @@ jobs:
       run: |
         kubectl delete serviceaccount restaurants-app --ignore-not-found
 
+    - name: Clean up existing Helm release
+      run: |
+        RELEASE_NAME="restaurants-app"
+        if helm ls --namespace default | grep -q $RELEASE_NAME; then
+          echo "### Deleting existing release"
+          helm uninstall $RELEASE_NAME --namespace default
+        fi
+
     - name: Deploy to AKS using Helm
       run: |
         RELEASE_NAME="restaurants-app"
