@@ -20,7 +20,7 @@ spec:
           echo "### Deleting existing job if it exists"
           kubectl delete job create-pv-pvc --ignore-not-found
           echo "### Applying PersistentVolume"
-          kubectl apply -f /path/to/persistent-volume.yaml
+          kubectl apply -f /app/restaurants-charts/templates/persistent-volume.yaml
           echo "### Applying PersistentVolumeClaim"
-          kubectl apply -f /path/to/persistent-volume-claim.yaml
+          kubectl apply -f /app/restaurants-charts/templates/persistent-volume-claim.yaml
       restartPolicy: OnFailure
