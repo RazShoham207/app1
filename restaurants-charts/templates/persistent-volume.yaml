@@ -4,11 +4,15 @@ metadata:
   name: azurefile-pv
 spec:
   capacity:
-    storage: 5Gi
+    storage: 10Gi
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
   storageClassName: azurefile-app
-  azureFile:
-    secretName: azurefile-secret
-    shareName: aksshare
+  csi:
+    driver: file.csi.azure.com
     readOnly: false
+    volumeHandle: <storage-account-name>#<file-share-name>
+    nodeStageSecretRef:
+      name: azure-secret
+      namespace: default
