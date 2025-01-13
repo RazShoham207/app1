@@ -90,10 +90,10 @@ jobs:
 
         if helm ls --namespace default | grep -q $RELEASE_NAME; then
           echo "### Upgrading existing release"
-          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         else
           echo "### Installing new release"
-          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
+          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         fi
 
     - name: Restart Deployment
