@@ -1,4 +1,3 @@
-# filepath: /f:/רז/restaurants/app1/Dockerfile
 # Use the official image as a parent image
 FROM python:3.8-slim
 
@@ -17,8 +16,14 @@ RUN pip install --upgrade Flask Werkzeug
 # Verify installed versions
 RUN pip show Flask Werkzeug
 
+# Generate SSL certificate and key
+RUN apt-get update && apt-get install -y openssl && \
+    openssl genrsa -out /app/tls.key 2048 && \
+    openssl req -new -key /app/tls.key -out /app/tls.csr -subj "/CN=localhost" && \
+    openssl x509 -req -days 365 -in /app/tls.csr -signkey /app/tls.key -out /app/tls.crt
+
 # Make port 443 available to the world outside this container
 EXPOSE 443
 
 # Run app.py when the container launches
-CMD ["gunicorn", "--certfile=tls.crt", "--keyfile=tls.key", "-b", "0.0.0.0:443", "app:app"]
+CMD ["gunicorn", "--certfile=/app/tls.crt", "--keyfile=/app/tls.key", "-b", "0.0.0.0:443", "app:app"]
