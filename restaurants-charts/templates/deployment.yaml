@@ -23,7 +23,7 @@ spec:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         ports:
-        - containerPort: 80
+        - containerPort: 443
         volumeMounts:
         - name: history-storage
           mountPath: /app/history  # Directory where the application will store the request history
