@@ -17,6 +17,6 @@ spec:
         - -c
         - |
           kubectl delete job create-pv-pvc --ignore-not-found
-          kubectl apply -f persistent-volume.yaml
-          kubectl apply -f persistent-volume-claim.yaml
+          kubectl apply -f /app/restaurants-charts/templates/persistent-volume.yaml
+          kubectl apply -f /app/restaurants-charts/templates/persistent-volume-claim.yaml
       restartPolicy: OnFailure
