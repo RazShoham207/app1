@@ -14,5 +14,5 @@ spec:
     readOnly: false
     volumeHandle: "restaurantstfstatesa#aksshare"
     nodeStageSecretRef:
-      name: azure-secret
+      name: azurefile-secret
       namespace: default
