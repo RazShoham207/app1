@@ -89,6 +89,11 @@ jobs:
         if helm ls --namespace default | grep -q $RELEASE_NAME; then
           echo "### Deleting existing release"
           helm uninstall $RELEASE_NAME --namespace default
+          # Wait for the release to be fully deleted
+          while helm ls --namespace default | grep -q $RELEASE_NAME; do
+            echo "### Waiting for release to be fully deleted..."
+            sleep 10
+          done
         fi
 
     - name: Deploy to AKS using Helm
