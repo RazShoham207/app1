@@ -7,9 +7,6 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 ADD . /app
 
-# Storage Account PE FQDN
-ENV STORAGE_ACCOUNT_FQDN=restaurantstfstatesa.privatelink.file.core.windows.net
-
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -19,11 +16,14 @@ RUN pip install --upgrade Flask Werkzeug
 # Verify installed versions
 RUN pip show Flask Werkzeug
 
-# # Print installed versions
-# RUN python -c "import flask; import werkzeug; print('Flask version:', flask.__version__); print('Werkzeug version:', werkzeug.__version__)"
+# Generate SSL certificate and key
+RUN apt-get update && apt-get install -y openssl && \
+    openssl genrsa -out /app/tls.key 2048 && \
+    openssl req -new -key /app/tls.key -out /app/tls.csr -subj "/CN=localhost" && \
+    openssl x509 -req -days 365 -in /app/tls.csr -signkey /app/tls.key -out /app/tls.crt
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
+# Make port 443 available to the world outside this container
+EXPOSE 443
 
 # Run app.py when the container launches
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--certfile=/app/tls.crt", "--keyfile=/app/tls.key", "-b", "0.0.0.0:443", "app:app"]
