@@ -120,7 +120,7 @@ jobs:
           helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         fi
 
-    - name: Restart Deployment
+    - name: Fetch logs if job fails
+      if: failure()
       run: |
-        kubectl patch deployment restaurants-app -n default -p \
-          "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}}}}}"
+        kubectl logs job/create-pv-pvc
