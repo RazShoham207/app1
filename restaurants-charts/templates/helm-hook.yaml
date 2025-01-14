@@ -17,8 +17,8 @@ spec:
         - -c
         - |
           set -e
-          echo "### Listing contents of the restaurants-charts directory"
-          cd ./restaurants-charts && ls -R *
+          echo "### Listing contents of the current directory"
+          ls -R
           echo "### Applying Role and RoleBinding"
           kubectl apply -f templates/role.yaml
           kubectl apply -f templates/rolebinding.yaml
