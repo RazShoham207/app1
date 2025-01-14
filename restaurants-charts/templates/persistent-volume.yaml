@@ -12,3 +12,4 @@ spec:
     shareName: aksshare
     readOnly: false
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurefile-app
