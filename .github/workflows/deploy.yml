@@ -108,6 +108,11 @@ jobs:
           kubectl delete pvc --selector release=$RELEASE_NAME --namespace default --ignore-not-found
         fi
 
+    - name: List directory contents
+      run: |
+        echo "### Listing contents of the current directory"
+        ls -R ./restaurants-charts/templates
+
     - name: Deploy to AKS using Helm
       run: |
         RELEASE_NAME="restaurants-app"
