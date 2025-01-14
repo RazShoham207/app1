@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: create-pv-pvc
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook": pre-install,pre-upgrade,pre-delete
     "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 spec:
   backoffLimit: 4
