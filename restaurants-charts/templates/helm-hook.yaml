@@ -17,10 +17,10 @@ spec:
         - -c
         - |
           set -e
-          echo "### Printing current working directory"
-          pwd
-          echo "### Listing contents of the current directory"
-          ls -R
+          # echo "### Printing current working directory"
+          # pwd
+          # echo "### Listing contents of the current directory"
+          # ls -R
           echo "### Listing contents of the templates directory"
           ls templates
           echo "### Applying Role and RoleBinding"
