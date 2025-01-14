@@ -110,12 +110,8 @@ jobs:
 
     - name: List directory contents
       run: |
-        echo "### Listing contents of the current directory"
-        ls -R ./restaurants-charts/templates
-
-    - name: Set working directory
-      run: |
-        cd ./restaurants-charts
+          echo "### Listing contents of the templates directory"
+          cd ./restaurants-charts && ls -R templates
 
     - name: Deploy to AKS using Helm
       run: |
