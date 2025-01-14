@@ -93,7 +93,7 @@ jobs:
 
     - name: Clean up existing Helm release
       run: |
-        RELEASE_NAME="restaurants-app"
+        RELEASE_NAME="restaurants-app1"
         if helm ls --namespace default | grep -q $RELEASE_NAME; then
           echo "### Deleting existing release"
           helm uninstall $RELEASE_NAME --namespace default
@@ -109,7 +109,7 @@ jobs:
 
     - name: Deploy to AKS using Helm
       run: |
-        RELEASE_NAME="restaurants-app"
+        RELEASE_NAME="restaurants-app1"
         CHART_PATH="./restaurants-charts"
 
         if helm ls --namespace default | grep -q $RELEASE_NAME; then
