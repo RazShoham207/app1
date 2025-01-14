@@ -113,6 +113,10 @@ jobs:
         echo "### Listing contents of the current directory"
         ls -R ./restaurants-charts/templates
 
+    - name: Set working directory
+      run: |
+        cd ./restaurants-charts
+
     - name: Deploy to AKS using Helm
       run: |
         RELEASE_NAME="restaurants-app"
