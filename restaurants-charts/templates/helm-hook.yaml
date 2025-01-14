@@ -17,15 +17,15 @@ spec:
         - -c
         - |
           set -e
-          echo "### Listing contents of the templates directory"
-          ls -R templates
+          echo "### Listing contents of the current directory"
+          ls -R
           echo "### Applying Role and RoleBinding"
-          kubectl apply -f templates/role.yaml
-          kubectl apply -f templates/rolebinding.yaml
+          kubectl apply -f role.yaml
+          kubectl apply -f rolebinding.yaml
           echo "### Deleting existing job if it exists"
           kubectl delete job create-pv-pvc --ignore-not-found
           echo "### Applying PersistentVolume"
-          kubectl apply -f templates/persistent-volume.yaml
+          kubectl apply -f persistent-volume.yaml
           echo "### Applying PersistentVolumeClaim"
-          kubectl apply -f templates/persistent-volume-claim.yaml
+          kubectl apply -f persistent-volume-claim.yaml
       restartPolicy: OnFailure
