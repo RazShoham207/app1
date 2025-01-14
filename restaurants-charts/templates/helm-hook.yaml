@@ -17,6 +17,8 @@ spec:
         - -c
         - |
           set -e
+          echo "### Listing contents of the templates directory"
+          ls templates
           echo "### Applying Role and RoleBinding"
           kubectl apply -f templates/role.yaml
           kubectl apply -f templates/rolebinding.yaml
