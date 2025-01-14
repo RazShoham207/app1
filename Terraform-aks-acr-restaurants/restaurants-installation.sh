@@ -68,17 +68,6 @@ set_subscription() {
   az account set --subscription $SUBSCRIPTION_ID
 }
 
-authenticate_with_aks() {
-  echo "### Authenticating with the AKS cluster"
-  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --overwrite-existing
-  az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr $ACR_NAME
-}
-
-create_file_share() {
-  echo "### Creating Azure File share"
-  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY
-}
-
 create_vnet_and_subnet() {
   echo "### Creating Virtual Network and Subnet"
   echo "### Checking if the virtual network $VNET_NAME exists"
@@ -151,8 +140,9 @@ export ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID
 export ARM_TENANT_ID=$TENANT_ID
 
 initialize_terraform() {
+  get_storage_account_key
   echo "### Initializing Terraform - $(date '+%d-%m-%Y %H:%M:%S')"
-  terraform init -upgrade -reconfigure -backend-config="access_key=$ARM_ACCESS_KEY"
+  terraform init -upgrade -reconfigure -backend-config="access_key=$STORAGE_ACCOUNT_KEY"
 }
 
 create_execution_plan() {
@@ -178,19 +168,58 @@ check_and_create_resource_group() {
 }
 
 check_and_create_storage_account() {
-  echo "### Checking if storage account $STORAGE_ACCOUNT_NAME exists"
-  if az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME &> /dev/null; then
-    echo "### Storage account $STORAGE_ACCOUNT_NAME already exists. Skipping creation."
-  else
-    echo "### Creating storage account $STORAGE_ACCOUNT_NAME"
-    az storage account create --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --location $RESTAURANTS_RESOURCE_GROUP_LOCATION --sku Standard_LRS
-  fi
+  local retries=5
+  local count=0
+  local delay=30
+
+  while [ $count -lt $retries ]; do
+    echo "### Attempting to create storage account $STORAGE_ACCOUNT_NAME (Attempt $((count + 1))/$retries)"
+    if az storage account create --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --location $RESTAURANTS_RESOURCE_GROUP_LOCATION --sku Standard_LRS; then
+      echo "### Storage account $STORAGE_ACCOUNT_NAME created successfully"
+      return 0
+    else
+      echo "### Failed to create storage account $STORAGE_ACCOUNT_NAME. Retrying in $delay seconds..."
+      sleep $delay
+      count=$((count + 1))
+    fi
+  done
+
+  echo "### Failed to create storage account $STORAGE_ACCOUNT_NAME after $retries attempts"
+  return 1
+}
+
+# Function to wait for storage account provisioning state to be 'Succeeded'
+wait_for_storage_account_provisioning() {
+  local retries=10
+  local count=0
+  local delay=30
+
+  while [ $count -lt $retries ]; do
+    provisioning_state=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --query "provisioningState" --output tsv)
+    if [ "$provisioning_state" == "Succeeded" ]; then
+      echo "### Storage account $STORAGE_ACCOUNT_NAME is provisioned successfully"
+      return 0
+    else
+      echo "### Storage account $STORAGE_ACCOUNT_NAME is in provisioning state: $provisioning_state. Waiting for $delay seconds..."
+      sleep $delay
+      count=$((count + 1))
+    fi
+  done
+
+  echo "### Storage account $STORAGE_ACCOUNT_NAME failed to reach 'Succeeded' state after $retries attempts"
+  return 1
 }
 
 get_storage_account_key() {
   echo "### Getting storage account key"
   STORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group $DEVOPS_RESOURCE_GROUP_NAME --account-name $STORAGE_ACCOUNT_NAME --query '[0].value' --output tsv)
-  export ARM_ACCESS_KEY=$STORAGE_ACCOUNT_KEY
+}
+
+# Function to create Azure File share
+create_file_share() {
+  get_storage_account_key
+  echo "### Creating Azure File share $FILE_SHARE_NAME"
+  az storage share create --name $FILE_SHARE_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
 }
 
 check_and_create_aks() {
@@ -204,12 +233,13 @@ check_and_create_aks() {
 }
 
 check_and_create_storage_container() {
+  get_storage_account_key
   echo "### Checking if storage container $CONTAINER_NAME exists"
-  if az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY &> /dev/null; then
+  if az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY &> /dev/null; then
     echo "### Storage container $CONTAINER_NAME already exists. Skipping creation."
   else
     echo "### Creating storage container $CONTAINER_NAME"
-    az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $ARM_ACCESS_KEY
+    az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $STORAGE_ACCOUNT_KEY
   fi
 }
 
@@ -255,6 +285,12 @@ create_managed_identity() {
   export MI_CLIENT_ID=$MI_CLIENT_ID
 }
 
+authenticate_with_aks() {
+  echo "### Authenticating with the AKS cluster"
+  az aks get-credentials --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --name $AKS_CLUSTER_NAME --overwrite-existing
+  az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --attach-acr $ACR_NAME
+}
+
 install_azure_workload_identity() {
   echo "### Installing Azure Workload Identity on AKS"
   az aks update -n $AKS_CLUSTER_NAME -g $RESTAURANTS_RESOURCE_GROUP_NAME --enable-oidc-issuer --enable-workload-identity
@@ -294,44 +330,25 @@ metadata:
 EOF
 }
 
-# disable_public_network_access() {
-#   echo "### Disabling public network access for the storage account"
-#   az storage account update --name $STORAGE_ACCOUNT_NAME --resource-group $DEVOPS_RESOURCE_GROUP_NAME --default-action Deny
-# }
-
-# create_pv_and_pvc() {
-#   echo "### Creating Storage Class, Persistent Volume, and Persistent Volume Claim"
-#   kubectl apply -f $CHART_PATH/templates/storage-class.yaml
-#   kubectl apply -f $CHART_PATH/templates/persistent-volume.yaml
-#   kubectl apply -f $CHART_PATH/templates/persistent-volume-claim.yaml
-# }
-
 check_acr_health() {
   echo "### Checking ACR health - $(date '+%d-%m-%Y %H:%M:%S')"
   az acr check-health --name $ACR_NAME --yes
 }
 
 create_azurefile_secret() {
+  get_storage_account_key
   echo "### Checking if the azurefile-secret exists"
   if kubectl get secret azurefile-secret --namespace=default &> /dev/null; then
     echo "### Secret azurefile-secret already exists. Skipping creation."
   else
     echo "### Creating azurefile-secret"
-    kubectl create secret generic azurefile-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$ARM_ACCESS_KEY --namespace=default
+    kubectl create secret generic azurefile-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY --namespace=default
   fi
 }
-
-# import_existing_acr() {
-#   get_storage_account_key
-#   echo "### Importing existing ACR into Terraform state"
-#   terraform import azurerm_container_registry.acr /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME/providers/Microsoft.ContainerRegistry/registries/$ACR_NAME
-# }
 
 enable_aks_managed_identity() {
   echo "### Enabling Managed Identity for AKS cluster"
   az aks update --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --enable-managed-identity
-  echo "Ensuring Azure CLI is Authenticated"
-  az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET --tenant $TENANT_ID
   echo "Getting the MI Object ID"
   AKS_MI_ID=$(az aks show --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "identityProfile.kubeletidentity.objectId" --output tsv)
   export AKS_MI_ID=$AKS_MI_ID
@@ -348,12 +365,7 @@ assign_acr_pull_role() {
 }
 
 assign_owner_role_to_sp() {
-  echo "### Assigning the Owner Role to the Service Principal"
-  
-  # Ensure Azure CLI is authenticated
-  echo "### Ensuring Azure CLI is authenticated"
-  az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET --tenant $TENANT_ID
-  
+  echo "### Assigning the Owner Role to the Service Principal" 
   # Retry mechanism for role assignment
   for i in {1..5}; do
     az role assignment create --assignee $CLIENT_ID --role Owner --scope /subscriptions/$SUBSCRIPTION_ID && break
@@ -368,6 +380,7 @@ main() {
   check_and_create_resource_group $DEVOPS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
   check_and_create_resource_group $RESTAURANTS_RESOURCE_GROUP_NAME $RESTAURANTS_RESOURCE_GROUP_LOCATION
   check_and_create_storage_account
+  wait_for_storage_account_provisioning
   get_storage_account_key
   create_file_share
   check_and_create_storage_container
@@ -414,10 +427,11 @@ main() {
 
   # Initialize Terraform
   echo "### Initializing Terraform"
+  get_storage_account_key
   terraform init -backend-config="storage_account_name=$STORAGE_ACCOUNT_NAME" \
                  -backend-config="container_name=$CONTAINER_NAME" \
                  -backend-config="key=terraform.tfstate" \
-                 -backend-config="access_key=$ARM_ACCESS_KEY" -reconfigure
+                 -backend-config="access_key=$STORAGE_ACCOUNT_KEY" -reconfigure
 
   # Remove resource groups from Terraform state if they exist
   remove_resource_group_from_state "$DEVOPS_RESOURCE_GROUP_NAME"
