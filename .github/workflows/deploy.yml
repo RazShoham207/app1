@@ -110,8 +110,8 @@ jobs:
 
     - name: List directory contents
       run: |
-          echo "### Listing contents of the restaurants-charts directory"
-          cd ./restaurants-charts && ls -R *
+        echo "### Listing contents of the restaurants-charts directory"
+        ls -R ./restaurants-charts
 
     - name: Deploy to AKS using Helm
       run: |
