@@ -125,8 +125,3 @@ jobs:
           echo "### Installing new release"
           helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         fi
-
-    - name: Fetch logs if job fails
-      if: failure()
-      run: |
-        kubectl logs job/create-pv-pvc
