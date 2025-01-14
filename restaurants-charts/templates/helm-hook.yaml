@@ -18,12 +18,12 @@ spec:
         - |
           set -e
           echo "### Applying Role and RoleBinding"
-          kubectl apply -f /home/runner/work/app1/app1/restaurants-charts/templates/role.yaml
-          kubectl apply -f /home/runner/work/app1/app1/restaurants-charts/templates/rolebinding.yaml
+          kubectl apply -f /home/runner/work/app1/restaurants-charts/templates/role.yaml
+          kubectl apply -f /home/runner/work/app1/restaurants-charts/templates/rolebinding.yaml
           echo "### Deleting existing job if it exists"
           kubectl delete job create-pv-pvc --ignore-not-found
           echo "### Applying PersistentVolume"
-          kubectl apply -f /home/runner/work/app1/app1/restaurants-charts/templates/persistent-volume.yaml
+          kubectl apply -f /home/runner/work/app1/restaurants-charts/templates/persistent-volume.yaml
           echo "### Applying PersistentVolumeClaim"
-          kubectl apply -f /home/runner/work/app1/app1/restaurants-charts/templates/persistent-volume-claim.yaml
+          kubectl apply -f /home/runner/work/app1/restaurants-charts/templates/persistent-volume-claim.yaml
       restartPolicy: OnFailure
