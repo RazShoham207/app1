@@ -18,15 +18,7 @@ spec:
         - |
           set -e
           echo "### Applying Role and RoleBinding"
-          echo "working directory is: "; pwd
-          echo "The content is: ";ls -ltr
-          echo "The content in target folder /home/ is: ";ls -ltr /home/
-          echo "The content in target folder /home/runner/ is: ";ls -ltr /home/runner/
-          echo "The content in target folder /home/runner/work/ is: ";ls -ltr /home/runner/work/
-          echo "The content in target folder /home/runner/work/app1/ is: ";ls -ltr /home/runner/work/app1/
-          echo "The content in target folder /home/runner/work/app1/app1 is: ";ls -ltr /home/runner/work/app1/app1/
-          echo "The content in target folder /home/runner/work/app1/app1/restaurants-charts is: ";ls -ltr /home/runner/work/app1/app1/restaurants-charts/
-          echo "The content in target folder /home/runner/work/app1/app1/restaurants-charts/templates is: ";ls -ltr /home/runner/work/app1/app1/restaurants-charts/templates/
+          find / -name role.yaml
           kubectl apply -f /home/runner/work/app1/app1/restaurants-charts/templates/role.yaml
           kubectl apply -f /home/runner/work/app1/app1/restaurants-charts/templates/rolebinding.yaml
           echo "### Deleting existing job if it exists"
