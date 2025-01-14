@@ -105,6 +105,7 @@ jobs:
           # Force delete any lingering resources
           echo "### Force deleting lingering resources"
           kubectl delete all --selector release=$RELEASE_NAME --namespace default --ignore-not-found
+          kubectl delete pvc --selector release=$RELEASE_NAME --namespace default --ignore-not-found
         fi
 
     - name: Deploy to AKS using Helm
