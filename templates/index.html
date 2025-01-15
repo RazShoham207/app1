@@ -1,4 +1,3 @@
-<!-- filepath: /f:/רז/restaurants/app1/templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -75,13 +74,26 @@
             padding: 5px;
             border-radius: 5px;
         }
-        /* Add the following CSS rule */
         .restaurant-info {
             color: black;
         }
         p {
             margin: 0;
             padding: 0;
+        }
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+                padding: 5px;
+            }
+            .flip-box {
+                max-width: 100%;
+                aspect-ratio: auto;
+            }
+            .overlay-text {
+                font-size: 0.8rem;
+                padding: 3px;
+            }
         }
     </style>
 </head>
@@ -98,13 +110,11 @@
                 <div class="overlay-text">העבר את העכבר על התמונה ומחוצה לה</div>
             </div>
             <div class="flip-box-back restaurant-info">
-                <body>
-                    <h2>חייקל'ה</h2>
-                    <p>הפאב הקהילתי שפתחתי בקיבוץ</p>
-                    <p>מועדון קטן ונעים בו מגישים משקאות טובים ופינוקים כמו פיצות, נקנקיות, אדממה ופופקורן</p>
-                    <p>כל שבוע יש פעילויות שונות כמו ערבי ג'אם, צפייה בספורט וסרטים, מסיבות ריקודים ועוד</p>
-                    <p>:להלן רשימת המסעדות המלאה</p>
-                </body>
+                <h2>חייקל'ה</h2>
+                <p>הפאב הקהילתי שפתחתי בקיבוץ</p>
+                <p>מועדון קטן ונעים בו מגישים משקאות טובים ופינוקים כמו פיצות, נקנקיות, אדממה ופופקורן</p>
+                <p>כל שבוע יש פעילויות שונות כמו ערבי ג'אם, צפייה בספורט וסרטים, מסיבות ריקודים ועוד</p>
+                <p>:להלן רשימת המסעדות המלאה</p>
                 <ul>
                     <li>Pizza Hut Italian 123 Main St 09:00 23:00 False True</li>
                     <li>Veggie Delight Vegetarian 456 Elm St 10:00 22:00 True True</li>
