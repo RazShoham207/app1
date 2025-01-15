@@ -104,7 +104,8 @@ jobs:
           done
           # Force delete any lingering resources
           echo "### Force deleting lingering resources"
-          kubectl delete deployment,service,configmap,secret,ingress --selector release=$RELEASE_NAME --namespace default --ignore-not-found
+          kubectl delete deployment --selector release=$RELEASE_NAME --namespace default --ignore-not-found
+          # kubectl delete deployment,service,configmap,secret,ingress --selector release=$RELEASE_NAME --namespace default --ignore-not-found
         fi
 
     - name: List directory contents
