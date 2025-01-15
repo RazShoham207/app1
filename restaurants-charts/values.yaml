@@ -5,14 +5,6 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
-imagePullSecrets:
-  - name: acr-secret
-
-service:
-  type: LoadBalancer
-  port: 443
-  targetPort: 443
-
 hpa:
   enabled: true
   minReplicas: 1
