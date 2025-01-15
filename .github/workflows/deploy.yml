@@ -91,13 +91,12 @@ jobs:
       run: |
         kubectl delete serviceaccount restaurants-app --ignore-not-found
 
-    - name: Apply PersistentVolume and PersistentVolumeClaim
+    - name: Apply Storage-class, PersistentVolume, PersistentVolumeClaim and Service
       run: |
         kubectl apply -f k8s/storage-class.yaml  
         kubectl apply -f k8s/persistent-volume.yaml
         kubectl apply -f k8s/persistent-volume-claim.yaml
         kubectl apply -f k8s/service.yaml
-        kubectl apply -f k8s/hpa.yaml
 
     - name: List directory contents
       run: |
