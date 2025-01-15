@@ -107,19 +107,20 @@ jobs:
       run: |
         RELEASE_NAME="restaurants-app"
         CHART_PATH="./restaurants-charts"
+        NAMESPACE="default"
 
-        if helm ls --namespace default | grep -q $RELEASE_NAME; then
+        if helm ls --namespace $NAMESPACE | grep -q $RELEASE_NAME; then
           echo "### Upgrading existing release"
-          helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
+          helm upgrade $RELEASE_NAME $CHART_PATH --namespace $NAMESPACE --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         else
           echo "### Installing new release"
-          helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
+          helm install $RELEASE_NAME $CHART_PATH --namespace $NAMESPACE --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         fi
 
     - name: Restart Deployment
       run: |
-        kubectl rollout restart deployment restaurants-app
+        kubectl rollout restart deployment restaurants-app --namespace default
 
     - name: Verify HPA
       run: |
-        kubectl get hpa
+        kubectl get hpa --namespace default
