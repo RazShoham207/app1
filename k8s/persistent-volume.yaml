@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: azurefile-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  azureFile:
+    secretName: azurefile-secret
+    shareName: aksshare
+    readOnly: false
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurefile-app
