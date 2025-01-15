@@ -422,9 +422,6 @@ main() {
   ACR_FQDN="${ACR_NAME}.privatelink.azurecr.io"
   export ACR_FQDN=$ACR_FQDN
 
-  # # Import existing ACR into Terraform state
-  # import_existing_acr
-
   # Initialize Terraform
   echo "### Initializing Terraform"
   get_storage_account_key
@@ -470,19 +467,6 @@ main() {
   # Authenticate with the AKS cluster
   authenticate_with_aks
   create_azurefile_secret
-
-  # Disable public network access for the storage account
-  # disable_public_network_access
-  # create_pv_and_pvc
-
-  # # Run Helm commands to install or upgrade the release
-  # if helm ls --namespace default | grep -q $RELEASE_NAME; then
-  #   echo "### Upgrading existing release"
-  #   helm upgrade $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
-  # else
-  #   echo "### Installing new release"
-  #   helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest
-  # fi
 
   # Check if the azurek8s file exists before attempting to modify it
   if [ -f ./azurek8s ]; then
