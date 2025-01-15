@@ -24,6 +24,13 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         ports:
         - containerPort: 443
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
         volumeMounts:
         - name: history-storage
           mountPath: /app/history  # Directory where the application will store the request history
