@@ -91,22 +91,13 @@ jobs:
       run: |
         kubectl delete serviceaccount restaurants-app --ignore-not-found
 
-    - name: Clean up existing Helm release
+    - name: Apply PersistentVolume and PersistentVolumeClaim
       run: |
-        RELEASE_NAME="restaurants-app"
-        if helm ls --namespace default | grep -q $RELEASE_NAME; then
-          echo "### Deleting existing release"
-          helm uninstall $RELEASE_NAME --namespace default
-          # Wait for the release to be fully deleted
-          while helm ls --namespace default | grep -q $RELEASE_NAME; do
-            echo "### Waiting for release to be fully deleted..."
-            sleep 10
-          done
-          # Force delete any lingering resources
-          echo "### Force deleting lingering resources"
-          kubectl delete deployment --selector release=$RELEASE_NAME --namespace default --ignore-not-found
-          # kubectl delete deployment,service,configmap,secret,ingress --selector release=$RELEASE_NAME --namespace default --ignore-not-found
-        fi
+        kubectl apply -f k8s/storage-class.yaml  
+        kubectl apply -f k8s/persistent-volume.yaml
+        kubectl apply -f k8s/persistent-volume-claim.yaml
+        kubectl apply -f k8s/service.yaml
+        kubectl apply -f k8s/hpa.yaml
 
     - name: List directory contents
       run: |
