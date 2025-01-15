@@ -93,7 +93,7 @@ jobs:
 
     - name: Apply Storage-class, PersistentVolume, PersistentVolumeClaim and Service
       run: |
-        kubectl apply -f k8s/storage-class.yaml  
+        kubectl apply -f k8s/storage-class.yaml
         kubectl apply -f k8s/persistent-volume.yaml
         kubectl apply -f k8s/persistent-volume-claim.yaml
         kubectl apply -f k8s/service.yaml
@@ -115,3 +115,7 @@ jobs:
           echo "### Installing new release"
           helm install $RELEASE_NAME $CHART_PATH --set image.repository=restaurantsacr.azurecr.io/restaurants-app --set image.tag=latest --timeout 10m --debug
         fi
+
+    - name: Restart Deployment
+      run: |
+        kubectl rollout restart deployment restaurants-app
