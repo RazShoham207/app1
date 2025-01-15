@@ -11,6 +11,9 @@ hpa:
   maxReplicas: 10
   targetCPUUtilizationPercentage: 50
 
+service:
+  port: 443
+
 serviceAccount:
   create: true
   name: ""
