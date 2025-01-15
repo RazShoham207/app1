@@ -119,3 +119,7 @@ jobs:
     - name: Restart Deployment
       run: |
         kubectl rollout restart deployment restaurants-app
+
+    - name: Verify HPA
+      run: |
+        kubectl get hpa
