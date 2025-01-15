@@ -97,6 +97,7 @@ jobs:
         kubectl apply -f k8s/persistent-volume.yaml
         kubectl apply -f k8s/persistent-volume-claim.yaml
         kubectl apply -f k8s/service.yaml
+        kubectl apply -f k8s/hpa.yaml
 
     - name: List directory contents
       run: |
