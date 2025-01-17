@@ -1,9 +1,11 @@
+import os
+import json
 from flask import Flask, request, jsonify, make_response, send_from_directory, render_template
 from urllib.parse import quote as url_quote
 from datetime import datetime
 from collections import OrderedDict
-import json
-import os
+
+
 
 app = Flask(__name__)
 app.config['STORAGE_ACCOUNT_FQDN'] = os.getenv('STORAGE_ACCOUNT_FQDN', 'default_fqdn')
@@ -12,14 +14,24 @@ app.config['STORAGE_ACCOUNT_FQDN'] = os.getenv('STORAGE_ACCOUNT_FQDN', 'default_
 storage_account_fqdn = app.config['STORAGE_ACCOUNT_FQDN']
 
 class Restaurant:
-    def __init__(self, name, style, address, open_hour, close_hour, vegetarian, deliveries):
+    def __init__(self, name, cuisine, address, opening_time, closing_time, vegetarian, delivery):
         self.name = name
-        self.style = style
+        self.cuisine = cuisine
         self.address = address
-        self.open_hour = open_hour
-        self.close_hour = close_hour
+        self.opening_time = opening_time
+        self.closing_time = closing_time
         self.vegetarian = vegetarian
-        self.deliveries = deliveries
+        self.delivery = delivery
+
+def load_restaurants():
+    with open('restaurants.json', 'r') as file:
+        data = json.load(file)
+        return [Restaurant(**restaurant) for restaurant in data]
+
+@app.route('/')
+def index():
+    restaurants = load_restaurants()
+    return render_template('index.html', restaurants=restaurants)
 
     def is_open(self, current_time):
         open_time = datetime.strptime(self.open_hour, "%H:%M").time()
@@ -31,18 +43,6 @@ class Restaurant:
         else:
             # Opening and closing times are on different days
             return current_time >= open_time or current_time <= close_time
-
-restaurants = [
-    Restaurant("Pizza Hut", "Italian", "123 Main St", "09:00", "23:00", False, True),
-    Restaurant("Veggie Delight", "Vegetarian", "456 Elm St", "10:00", "22:00", True, True),
-    Restaurant("Sushi World", "Japanese", "789 Oak St", "11:00", "21:00", False, False),
-    Restaurant("Late Night Diner", "American", "101 Night St", "10:00", "02:00", False, True),
-    Restaurant("Very Late Night Diner", "American", "222 Night St", "11:00", "03:00", False, True),
-    Restaurant("Very very Late Night Diner", "American", "333 Night St", "12:00", "04:00", False, True),
-    Restaurant("Very very Late Night Diner", "American", "333 Night St", "12:00", "05:00", False, True),
-    Restaurant("Day time", "American", "333 Night St", "08:00", "16:00", False, True),
-    # Add more restaurants as needed
-]
 
 # Directory to save request history
 HISTORY_DIR = "/app/history"
@@ -95,4 +95,4 @@ def favicon():
     return response
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=443, ssl_context=('/app/tls.crt', '/app/tls.key'))
+    app.run(host='0.0.0.0', port=443, ssl_context=('/app/tls.crt', '/app/tls.key'), debug=True)
