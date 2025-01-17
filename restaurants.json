@@ -1,0 +1,74 @@
+[
+    {
+        "name": "Pizza Hut",
+        "cuisine": "Italian",
+        "address": "123 Main St",
+        "opening_time": "09:00",
+        "closing_time": "23:00",
+        "vegetarian": false,
+        "delivery": true
+    },
+    {
+        "name": "Veggie Delight",
+        "cuisine": "Vegetarian",
+        "address": "456 Elm St",
+        "opening_time": "10:00",
+        "closing_time": "22:00",
+        "vegetarian": true,
+        "delivery": true
+    },
+    {
+        "name": "Sushi World",
+        "cuisine": "Japanese",
+        "address": "789 Oak St",
+        "opening_time": "11:00",
+        "closing_time": "21:00",
+        "vegetarian": false,
+        "delivery": false
+    },
+    {
+        "name": "Late Night Diner",
+        "cuisine": "American",
+        "address": "101 Night St",
+        "opening_time": "10:00",
+        "closing_time": "02:00",
+        "vegetarian": false,
+        "delivery": true
+    },
+    {
+        "name": "Very Late Night Diner",
+        "cuisine": "American",
+        "address": "222 Night St",
+        "opening_time": "11:00",
+        "closing_time": "03:00",
+        "vegetarian": false,
+        "delivery": true
+    },
+    {
+        "name": "Very very Late Night Diner",
+        "cuisine": "American",
+        "address": "333 Night St",
+        "opening_time": "12:00",
+        "closing_time": "04:00",
+        "vegetarian": false,
+        "delivery": true
+    },
+    {
+        "name": "Very very Late Night Diner",
+        "cuisine": "American",
+        "address": "333 Night St",
+        "opening_time": "12:00",
+        "closing_time": "05:00",
+        "vegetarian": false,
+        "delivery": true
+    },
+    {
+        "name": "Day time",
+        "cuisine": "American",
+        "address": "333 Night St",
+        "opening_time": "08:00",
+        "closing_time": "16:00",
+        "vegetarian": false,
+        "delivery": true
+    }
+]
