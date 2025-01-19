@@ -374,6 +374,16 @@ assign_owner_role_to_sp() {
   done
 }
 
+# Assign the `Storage Account Key Operator Service Role` role to the service principal or managed identity at the scope of the storage account.
+assign_sa_key_operator_to_sp() {
+    AKS_MI_ID=$(az aks show --name $AKS_CLUSTER_NAME --resource-group $RESTAURANTS_RESOURCE_GROUP_NAME --query "identityProfile.kubeletidentity.objectId" --output tsv)
+  if [ -z "$AKS_MI_ID" ]; then
+    echo "### Failed to retrieve Managed Identity Object ID for AKS cluster"
+    exit 1
+  fi
+  az role assignment create --assignee $AKS_MI_ID --role "Storage Account Key Operator Service Role" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$DEVOPS_RESOURCE_GROUP_NAME/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT_NAME
+}
+
 main() {
   authenticate_azure
   set_subscription
@@ -498,6 +508,9 @@ main() {
 
   # Assign the Owner Role to the Service Principal
   assign_owner_role_to_sp
+
+  # Assign the `Storage Account Key Operator Service Role` role to the service principal or managed identity at the scope of the storage account.
+  assign_sa_key_operator_to_sp
 
   # Check if the restaurants-app service exists
   if kubectl get svc restaurants-app -n default > /dev/null 2>&1; then
