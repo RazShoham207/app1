@@ -23,10 +23,10 @@ RUN apt-get update && apt-get install -y openssl && \
     openssl x509 -req -days 365 -in /app/tls.csr -signkey /app/tls.key -out /app/tls.crt
 
 # Install dnsutils for nslookup
-RUN apt-get update && apt-get install -y dnsutils
+RUN apt-get install -y dnsutils
 
 # Install systemd and other necessary packages
-RUN apt-get update && apt-get install -y systemd && apt-get clean
+RUN apt-get install -y systemd && apt-get clean
 
 # Make port 443 available to the world outside this container
 EXPOSE 443
