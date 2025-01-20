@@ -24,7 +24,7 @@ spec:
           - 168.63.129.16
       initContainers:
       - name: init-mount
-        image: your-docker-username/your-image-name:tag
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         command:
         - sh
         - -c
