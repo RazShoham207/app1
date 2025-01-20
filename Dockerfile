@@ -32,4 +32,4 @@ RUN apt-get install -y systemd && apt-get clean
 EXPOSE 443
 
 # Run app.py when the container launches
-CMD ["gunicorn", "--certfile=/app/tls.crt", "--keyfile=/app/tls.key", "-b", "0.0.0.0:443", "/lib/systemd/systemd", "app:app"]
+CMD ["gunicorn", "--certfile=/app/tls.crt", "--keyfile=/app/tls.key", "-b", "0.0.0.0:443", "app:app"]
