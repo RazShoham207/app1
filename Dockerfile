@@ -34,8 +34,8 @@ RUN apt-get install -y iputils-ping
 # Install curl for debugging
 RUN apt-get install -y curl
 
-# Install smbclient for SMB connectivity testing
-RUN apt-get install -y smbclient
+# Install smbclient and cifs-utils for SMB connectivity testing
+RUN apt-get install -y smbclient cifs-utils
 
 # Make port 443 available to the world outside this container
 EXPOSE 443
