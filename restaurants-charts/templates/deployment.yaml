@@ -22,25 +22,6 @@ spec:
       dnsConfig:
         nameservers:
           - 168.63.129.16
-      initContainers:
-      - name: init-mount
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        command:
-        - sh
-        - -c
-        - |
-          mkdir -p /mnt/aksshare
-          if [ ! -d "/etc/smbcredentials" ]; then
-            mkdir /etc/smbcredentials
-          fi
-          echo "username=$(cat /etc/smbcredentials/username)" > /etc/smbcredentials/restaurantstfstatesa.cred
-          echo "password=$(cat /etc/smbcredentials/password)" >> /etc/smbcredentials/restaurantstfstatesa.cred
-          chmod 600 /etc/smbcredentials/restaurantstfstatesa.cred
-          mount -t cifs //restaurantstfstatesa.file.core.windows.net/aksshare /mnt/aksshare -o credentials=/etc/smbcredentials/restaurantstfstatesa.cred,dir_mode=0777,file_mode=0777,serverino,nosharesock,actimeo=30
-        volumeMounts:
-        - name: smb-credentials
-          mountPath: /etc/smbcredentials
-          readOnly: true
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
