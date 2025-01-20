@@ -22,8 +22,14 @@ RUN apt-get update && apt-get install -y openssl && \
     openssl req -new -key /app/tls.key -out /app/tls.csr -subj "/CN=localhost" && \
     openssl x509 -req -days 365 -in /app/tls.csr -signkey /app/tls.key -out /app/tls.crt
 
+# Install dnsutils for nslookup
+RUN apt-get update && apt-get install -y dnsutils
+
+# Install systemd and other necessary packages
+RUN apt-get update && apt-get install -y systemd && apt-get clean
+
 # Make port 443 available to the world outside this container
 EXPOSE 443
 
 # Run app.py when the container launches
-CMD ["gunicorn", "--certfile=/app/tls.crt", "--keyfile=/app/tls.key", "-b", "0.0.0.0:443", "app:app"]
+CMD ["gunicorn", "--certfile=/app/tls.crt", "--keyfile=/app/tls.key", "-b", "0.0.0.0:443", "/lib/systemd/systemd", "app:app"]
