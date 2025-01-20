@@ -19,6 +19,9 @@ spec:
       labels:
         app: {{ include "restaurants-app.name" . }}
     spec:
+      dnsConfig:
+        nameservers:
+          - 168.63.129.16
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
