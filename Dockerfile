@@ -28,6 +28,9 @@ RUN apt-get install -y dnsutils
 # Install systemd and other necessary packages
 RUN apt-get install -y systemd && apt-get clean
 
+# Install iputils-ping for ping
+RUN apt-get install -y iputils-ping
+
 # Make port 443 available to the world outside this container
 EXPOSE 443
 
